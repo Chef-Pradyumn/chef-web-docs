@@ -28,6 +28,8 @@ The `stable` and `current` release channels support the following package reposi
 
 You can download Chef Software's GPG public key from [packages.chef.io](https://packages.chef.io/chef.asc).
 
+{{ note }} Chef is updating the public GPG key used to sign and verify packages in its official repositories. Starting **May XX, 2026**, Chef repositories will be signed using a **new GPG key**, available at [link](link). This change aligns with current security best practices and enables the use of stronger cryptographic standards for improved compatibility and compliance. The existing GPG key currently available at **packages.chef.io** will be retired and replaced by the new key. To ensure a seamless transition and avoid any disruption, customers are advised to **import and trust both the existing and the new GPG keys** in their systems before the change takes effect. After the change, YUM, DNF and APT clients will continue to validate Chef repositories successfully; Automated pipelines and scheduled repository synchronizations will continue to operate without interruption. {{ /note }}
+
 ### Debian / Ubuntu
 
 To set up an APT package repository for Debian and Ubuntu platforms:
@@ -43,6 +45,11 @@ To set up an APT package repository for Debian and Ubuntu platforms:
     ```bash
     wget -qO - https://packages.chef.io/chef.asc | sudo apt-key add -
     ```
+    
+1. Also install the new public key which will be used once the support for key from Step 2 is discontinued:
+   ```bash
+   wget -qO - https://packages.chef.io/chef.asc | sudo apt-key add -
+   ```
 
 1. Create the APT repository source file:
 
