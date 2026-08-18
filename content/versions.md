@@ -73,9 +73,9 @@ but it does have functionality that requires its acceptance in other products.
 Use of the following distributions is governed by the Apache License,
 version 2.0.
 
-| Product     | Version | Lifecycle Status | EOL Date |
-| ----------- | ------- | ---------------- | -------- |
-| Supermarket | 5.x     | GA               | To Be Determined (TBD)      |
+| Product     | Version | Lifecycle Status | EOL Date          |
+| ----------- | ------- | ---------------- | ----------------- |
+| Supermarket | 5.x     | GA               | May 31, 2027      |
 
 ## Deprecated products and versions
 
@@ -84,11 +84,11 @@ If you're using one of these products, migrate to a supported version or product
 
 | Product           | Version | Lifecycle Status | EOL Date          | Replacement product or version |
 | ----------------- | ------- | ---------------- | ----------------- | ------------------------------ |
-| Chef Backend      | 3.x     | Deprecated       | TBD               | Chef 360 Platform              |
-| Chef Infra Client | 18.x    | Deprecated       | TBD               | Chef Infra Client 19.x         |
+| Chef Backend      | 3.x     | Deprecated       | July 31, 2026     | Chef 360 Platform              |
+| Chef Infra Client | 18.x    | Deprecated       | August 31, 2027   | Chef Infra Client 19.x         |
 | Chef Infra Server | 15.x    | Deprecated       | November 30, 2026 | Chef 360 Platform              |
-| Chef InSpec       | 4.x     | Deprecated       | TBD               | Chef InSpec 5.x                |
-| Chef Workstation  | 24.x    | Deprecated       | April 2026        | Chef Workstation 25 or above   |
+| Chef InSpec       | 4.x     | Deprecated       | July 31, 2026     | Chef InSpec 7.x                |
+| Chef Workstation  | 24.x    | Deprecated       | April 30, 2026    | Chef Workstation 26.x.         |
 
 ## End of Life (EOL) products
 
