@@ -67,6 +67,11 @@ nav#utility-bar.redesign-header {
     filter: brightness(0) invert(1);
   }
 
+  ul.redesign-nav,
+  ul.redesign-nav ul {
+    background-color: transparent;
+  }
+
   ul.redesign-nav a {
     color: #cfd9de;
     font-weight: 600;
