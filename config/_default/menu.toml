@@ -4,6 +4,18 @@
 ####
 
 [[main]]
+title = "I want to…"
+identifier = "start-here"
+url = "/start-here/"
+weight = 1
+
+[[main]]
+title = "The Chef Way"
+identifier = "chef-way"
+url = "/chef-way/"
+weight = 2
+
+[[main]]
 title = "chef.io"
 identifier = "chef"
 url = "https://www.chef.io/"
