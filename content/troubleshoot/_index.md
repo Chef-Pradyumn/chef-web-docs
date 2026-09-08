@@ -1,5 +1,5 @@
 +++
-title = "How to use Chef Docs"
+title = "Troubleshoot an Issue"
 draft = false
 st_robots = "noindex, follow"
 toc = false
