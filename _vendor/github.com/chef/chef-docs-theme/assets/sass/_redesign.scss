@@ -37,6 +37,7 @@ input,
 button,
 select {
   font-family: "Progress Text", $body-font-family, sans-serif;
+  font-style: normal;
   color: var(--rd-ink);
 }
 
@@ -422,7 +423,6 @@ footer,
 .rd-hero-sub {
   color: #cfd9de;
   font-size: 17px;
-  font-style: italic;
   max-width: 620px;
   margin: 0 0 28px;
 }
@@ -478,7 +478,6 @@ footer,
 }
 .rd-section-sub {
   color: var(--rd-ink-soft);
-  font-style: italic;
   margin: 0 0 22px;
   font-size: 15px;
 }
@@ -520,7 +519,7 @@ footer,
     flex-direction: column;
     gap: 4px;
     strong { font-size: 15.5px; text-decoration: none; }
-    span { font-size: 13.5px; color: var(--rd-ink-soft); font-style: italic; line-height: 1.4; text-decoration: none; }
+    span { font-size: 13.5px; color: var(--rd-ink-soft); line-height: 1.4; text-decoration: none; }
   }
 }
 
