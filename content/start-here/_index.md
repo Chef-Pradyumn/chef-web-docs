@@ -23,7 +23,7 @@ Chef Docs is organized around four complementary ways to find what you need. Pic
 **New to Chef?** Start with [Chef fundamentals](/platform_overview/) and get your first environment working before diving into a specific product.
 {{% /chef_way %}}
 
-- **If you know the outcome you want**—e.g. "scan for compliance", "bootstrap a node", "package an app"—use each product's Getting Started guide.
+- **If you know the outcome you want**—for example, "scan for compliance," "bootstrap a node," or "package an app"—use each product's Getting Started guide.
 - **If you know the product**—go straight to that product's version-specific docs in the left sidebar.
 - **If you need a command, resource, or API**—use each product's Reference section.
 - **If you're stuck**—check each product's Troubleshooting page.
