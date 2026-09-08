@@ -273,6 +273,12 @@ footer,
       border-radius: 999px;
       padding: 5px 14px;
       font-weight: 700;
+      // Lock the variable font to upright: "Progress Text" ships a hidden
+      // slnt axis, and some browsers (Safari) will synthesize a slant on
+      // bold text from that axis unless explicitly pinned to 0.
+      font-style: normal;
+      font-variation-settings: "slnt" 0;
+      font-synthesis: none;
       color: var(--rd-ink);
       background: #fff;
 
