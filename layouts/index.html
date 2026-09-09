@@ -10,7 +10,7 @@
 {{ $products := slice
   (dict
     "name"     "Chef 360 Platform"
-    "url"      "/360/latest/"
+    "url"      "/360/"
     "icon_mat" "hub"
     "desc"     "A DevSecOps platform for automating security, compliance, and operational governance across your infrastructure."
   )
@@ -28,13 +28,13 @@
   )
   (dict
     "name"     "Chef Habitat"
-    "url"      "/habitat/latest/"
+    "url"      "/habitat/"
     "icon_mat" "deployed_code"
     "desc"     "An application automation framework for building, packaging, deploying, and managing applications anywhere."
   )
   (dict
     "name"     "Chef Infra Client"
-    "url"      "/client/latest/"
+    "url"      "/client/19/overview/chef_overview/"
     "icon_mat" "smb_share"
     "desc"     "Automate infrastructure configuration and enforce policy on every node using infrastructure-as-code."
   )
@@ -47,7 +47,7 @@
   )
   (dict
     "name"     "Chef InSpec"
-    "url"      "/inspec/latest/"
+    "url"      "/inspec/"
     "icon_mat" "search_check"
     "desc"     "A compliance-as-code framework for auditing and testing the state and security of your infrastructure."
   )
@@ -59,19 +59,19 @@
   )
   (dict
     "name"     "Chef Workstation"
-    "url"      "/workstation/latest/"
+    "url"      "/workstation/26.1/"
     "icon_mat" "computer"
     "desc"     "The all-in-one development environment for authoring, testing, and running Chef Infra and InSpec code."
   )
 }}
 
 {{ $goals := slice
-  (dict "title" "Manage infrastructure" "desc" "Configuration management, cookbooks, Policyfiles, and node runs with Chef Infra." "url" "/client/latest/" "icon" "wrench")
-  (dict "title" "Secure & audit infrastructure" "desc" "Compliance-as-code scans, CIS/SOC2 profiles, and remediation with Chef InSpec." "url" "/inspec/latest/" "icon" "shield")
-  (dict "title" "Build & ship applications" "desc" "Package, deploy, and manage applications anywhere with Chef Habitat." "url" "/habitat/latest/" "icon" "package")
+  (dict "title" "Manage infrastructure" "desc" "Configuration management, cookbooks, Policyfiles, and node runs with Chef Infra." "url" "/client/19/overview/chef_overview/" "icon" "wrench")
+  (dict "title" "Secure & audit infrastructure" "desc" "Compliance-as-code scans, CIS/SOC2 profiles, and remediation with Chef InSpec." "url" "https://docs.chef.io/inspec/7.2/" "icon" "shield")
+  (dict "title" "Build & ship applications" "desc" "Package, deploy, and manage applications anywhere with Chef Habitat." "url" "https://docs.chef.io/habitat/2.1/" "icon" "package")
   (dict "title" "Manage endpoints" "desc" "Automate setup and ongoing management of desktops and laptops." "url" "/desktop/" "icon" "monitor")
-  (dict "title" "Upgrade & migrate" "desc" "Move from Infra Server to Chef 360, upgrade clients, or plan an EOL transition." "url" "/versions/" "icon" "refresh")
-  (dict "title" "Troubleshoot an issue" "desc" "Diagnose failed runs, connectivity, authentication, and compliance scan errors." "url" "/automate/troubleshooting/" "icon" "compass")
+  (dict "title" "Upgrade & migrate" "desc" "Move from Infra Server to Chef 360, upgrade clients, or plan an EOL transition." "url" "/upgrade-migrate/" "icon" "refresh")
+  (dict "title" "Troubleshoot an issue" "desc" "Diagnose failed runs, connectivity, authentication, and compliance scan errors." "url" "/troubleshoot/" "icon" "compass")
 }}
 
 {{ $icons := dict
@@ -99,9 +99,9 @@
       </form>
       <p class="rd-hero-popular">
         Popular:
-        <a href="/workstation/latest/">Install Chef Workstation</a>
-        <a href="/client/latest/">Create a cookbook</a>
-        <a href="/inspec/latest/">Run an InSpec scan</a>
+        <a href="/workstation/26.1/">Install Chef Workstation</a>
+        <a href="/client/19/">Create a cookbook</a>
+        <a href="/inspec/">Run an InSpec scan</a>
         <a href="/versions/">Upgrade guide</a>
       </p>
       {{- end }}

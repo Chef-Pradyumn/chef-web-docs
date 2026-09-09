@@ -1,5 +1,5 @@
 +++
-title = "The Chef Way"
+title = "Troubleshoot an Issue"
 draft = false
 st_robots = "noindex, follow"
 toc = false

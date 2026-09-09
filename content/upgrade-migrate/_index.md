@@ -1,5 +1,5 @@
 +++
-title = "The Chef Way"
+title = "Upgrade & Migrate"
 draft = false
 st_robots = "noindex, follow"
 toc = false

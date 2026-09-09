@@ -38,6 +38,10 @@ button,
 select {
   font-family: "Progress Text", $body-font-family, sans-serif;
   font-style: normal;
+  // Explicitly pin the hidden slnt axis to 0 (upright). "Progress Text"
+  // is a variable font with a slant axis; some browsers can mis-render
+  // its default axis value as slanted unless it's forced here.
+  font-variation-settings: "slnt" 0;
   color: var(--rd-ink);
 }
 
@@ -266,7 +270,13 @@ footer,
   ul.version-select-menu {
     background: transparent;
 
-    > li.version-select-menu-parent > a {
+    // Foundation's dropdown-menu JS adds "is-dropdown-submenu-parent" to any
+    // <li> with a nested submenu (this one) and injects its own solid
+    // triangle ::after arrow + extra right padding, from a rule that's
+    // lower-specificity than ours here, so targeting both the plain and
+    // JS-added class combos below reliably wins regardless of load timing.
+    > li.version-select-menu-parent > a,
+    > li.version-select-menu-parent.is-dropdown-submenu-parent > a {
       display: inline-flex;
       align-items: center;
       gap: 6px;
@@ -286,13 +296,18 @@ footer,
       &:hover { border-color: var(--rd-orange); }
 
       &::after {
-        content: "";
-        border: solid var(--rd-ink-soft);
-        border-width: 0 2px 2px 0;
-        display: inline-block;
-        padding: 3px;
-        transform: rotate(45deg);
+        content: "" !important;
+        width: 10px;
+        height: 6px;
+        border: none !important;
+        flex-shrink: 0;
+        background: no-repeat center / contain url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%234b5763' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
         margin-left: 4px;
+        // Nudge up slightly: the V-shape's visual weight sits at its
+        // bottom vertex, so geometric centering alone still reads as
+        // "a bit low" next to bold text.
+        margin-top: -1.5px !important;
+        transform: none !important;
       }
     }
 
@@ -435,12 +450,13 @@ footer,
   padding: 6px 8px 6px 20px;
   max-width: 680px;
 
-  svg { color: var(--rd-ink-soft); flex-shrink: 0; }
+  svg { color: var(--rd-ink-soft); flex-shrink: 0; margin: 0; }
   input {
     border: none;
     flex: 1;
     font-size: 15px;
     padding: 10px 0;
+    margin: 0;
     font-family: "Progress Text", $body-font-family, sans-serif;
     &:focus { outline: none; box-shadow: none; }
   }
@@ -450,6 +466,7 @@ footer,
     border: none;
     border-radius: 999px;
     padding: 10px 22px;
+    margin: 0;
     font-weight: 700;
     cursor: pointer;
     &:hover { background: var(--rd-orange-dark); }

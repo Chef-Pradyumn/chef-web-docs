@@ -5,7 +5,7 @@ st_robots = "noindex, follow"
 toc = false
 +++
 
-Chef Docs is organized around four complementary ways to find what you need. Pick whichever matches how you think about your problem right now—there's no wrong door.
+## Coming soon
 
 ## Four navigation layers
 
