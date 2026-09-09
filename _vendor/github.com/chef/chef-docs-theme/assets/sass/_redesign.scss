@@ -626,3 +626,47 @@ footer,
   .rd-tiles, .rd-products { grid-template-columns: 1fr; }
   .rd-callout-way { flex-direction: column; align-items: flex-start; }
 }
+
+// ---- Left-nav group headings (information architecture) -------------------
+// Labels the left nav with the kind of thing each entry is -- Start here /
+// Products / Solutions / Resources / Archive -- so products, solutions built
+// from products, supporting resources and archived material stop reading as
+// peers. Rendered by layouts/partials/range_menu.html.
+#sidebar-nav .nav > ul > li.nav-group-heading {
+  font-family: "Progress Display", $body-font-family, sans-serif;
+  font-style: normal;
+  font-variation-settings: "slnt" 0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--rd-ink-soft);
+  padding: 0 0 4px;
+  margin: 22px 0 4px;
+  border-bottom: 1px solid var(--rd-line);
+  cursor: default;
+
+  &:first-child {
+    margin-top: 4px;
+  }
+}
+
+// Lightweight lifecycle indicator. Lifecycle status is owned by /versions/;
+// this is a pointer to it, not a second source of truth.
+.nav-status-deprecated {
+  display: inline-block;
+  font-family: "Progress Text", $body-font-family, sans-serif;
+  font-style: normal;
+  font-variation-settings: "slnt" 0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #92600a;
+  background: #fff4e5;
+  border-radius: 999px;
+  padding: 1px 7px;
+  margin-left: 6px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
