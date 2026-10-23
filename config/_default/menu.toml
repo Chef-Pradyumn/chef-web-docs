@@ -112,6 +112,12 @@ weight = 20
     parent = "overview/solutions"
     weight = 10
 
+    [[overview]]
+    title = "Chef Infrastructure Management"
+    identifier = "overview/solutions/infrastructure_management"
+    parent = "overview/solutions"
+    weight = 20
+
 ####
 # End Overview Menu
 ####
