@@ -63,6 +63,10 @@ Start with the one closest to the systems you own:
   For a smaller first assessment,
   [The Chef way of GitHub repository compliance](/solutions/compliance/github/)
   checks repository files, records approved exceptions, and explains how to retain evidence and detect drift.
+- **Assessing virtual machines?**
+  [The Chef way of virtual machine compliance](/solutions/compliance/vm_compliance/)
+  checks the guest, the template it was cloned from, and the VM's configuration in the platform,
+  then scales the assessment across on-premises and cloud VMs.
 - **Have a different fleet or problem in mind?**
   See [common compliance scenarios](#common-compliance-scenarios) for Windows, databases,
   mixed fleets, and more.

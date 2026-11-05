@@ -28,6 +28,7 @@ For what each coverage term means, see
 - [Compliance solution overview](/solutions/compliance/)
 - [Compliance audit](/solutions/compliance/#compliance-audit)
 - [Compliance remediation](/solutions/compliance/#compliance-remediation)
+- [The Chef way of virtual machine compliance](/solutions/compliance/vm_compliance/)
 - [The Chef way of custom compliance checks](/solutions/compliance/extend/)
 - [Chef InSpec](/inspec/latest/)
 - [Compliance reporting in Chef Automate](/automate/reports/)
