@@ -73,12 +73,16 @@ Chef 360 Platform &mdash; to get one job done, from first setup to day-to-day op
           <div class="product-card-icon" aria-hidden="true">
             <span class="material-symbols-outlined" translate="no">dns</span>
           </div>
-          <h3 class="solution-card-name">Infrastructure management
-            <span class="admonition-warning-title solution-card-badge">Coming soon</span>
-          </h3>
+          <h3 class="solution-card-name"><a href="/solutions/infrastructure_management/">Chef Infrastructure Management</a></h3>
         </div>
-        <p>Provision, configure, and converge infrastructure as code across cloud, on-premises,
-        and hybrid environments.</p>
+        <p>The Chef Way: describe the state your systems should be in as code, converge every system
+        to it, and correct drift on the next run &mdash; across cloud, on-premises, and hybrid environments.</p>
+      </div>
+      <div class="card-divider">
+        <a href="/solutions/infrastructure_management/" aria-hidden="true" tabindex="-1">
+          View solution
+          <span class="material-symbols-outlined" translate="no" aria-hidden="true">arrow_forward</span>
+        </a>
       </div>
     </div>
   </div>
