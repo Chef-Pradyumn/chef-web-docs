@@ -8,7 +8,7 @@ gh_repo = "chef-web-docs"
   identifier = "overview/solutions/compliance/kubernetes"
   parent = "overview/solutions/compliance"
   title = "Kubernetes compliance"
-  weight = 10
+  weight = 11
 +++
 
 <!-- cspell:ignore sobject sobjects -->
