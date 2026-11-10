@@ -8,7 +8,7 @@ gh_repo = "chef-web-docs"
   identifier = "overview/solutions/compliance/databases"
   parent = "overview/solutions/compliance"
   title = "Database compliance"
-  weight = 11
+  weight = 10
 +++
 
 <!-- cspell:ignore authid rolsuper rolname rolcanlogin rolpassword psql mysqld sqlcmd sqlplus oracledb mssql tablespace mariadb -->
