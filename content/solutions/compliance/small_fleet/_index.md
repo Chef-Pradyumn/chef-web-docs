@@ -166,7 +166,7 @@ directory '/etc/ssh/sshd_config.d' do
   recursive true
 end
 
-file '/etc/ssh/sshd_config.d/50-fleet-baseline.conf' do
+file '/etc/ssh/sshd_config.d/00-fleet-baseline.conf' do
   content <<~CONF
     PermitRootLogin no
     PasswordAuthentication no
@@ -214,6 +214,9 @@ What each part does:
 : Declare the content, owner, group, and mode a file or directory must have.
   Chef Infra Client compares that declaration with the server on every run
   and changes only what's different.
+  Using `00-fleet-baseline.conf` ensures this file sorts before other drop-ins
+  such as `50-cloud-init.conf`. Because OpenSSH uses the first value encountered
+  for a setting, an early file prefix prevents cloud-init or package defaults from taking precedence.
   If someone edits `/etc/sudoers.d/ops` by hand, the next run puts it back.
 
 `notifies :restart, ... :delayed`
@@ -280,13 +283,13 @@ end
 control 'fleet-02' do
   impact 'high'
   title 'Turn off root and password SSH logins'
-  desc 'SSH must refuse root logins and password authentication.'
+  desc 'Effective SSH daemon configuration must refuse root logins and password authentication.'
   tag 'fleet', 'ssh'
 
-  describe file('/etc/ssh/sshd_config.d/50-fleet-baseline.conf') do
-    its('content') { should match(/^PermitRootLogin no$/) }
-    its('content') { should match(/^PasswordAuthentication no$/) }
-    its('mode') { should cmp '0600' }
+  describe command('sshd -T') do
+    its('exit_status') { should cmp 0 }
+    its('stdout') { should match(/^permitrootlogin no$/i) }
+    its('stdout') { should match(/^passwordauthentication no$/i) }
   end
 end
 
@@ -462,9 +465,9 @@ Compliance report:
          + File /etc/issue.net content is expected to match /Authorized use only/
          + File /etc/issue.net mode is expected to cmp == "0644"
       Turn off root and password SSH logins
-         + File /etc/ssh/sshd_config.d/50-fleet-baseline.conf content is expected to match /^PermitRootLogin no$/
-         + File /etc/ssh/sshd_config.d/50-fleet-baseline.conf content is expected to match /^PasswordAuthentication no$/
-         + File /etc/ssh/sshd_config.d/50-fleet-baseline.conf mode is expected to cmp == "0600"
+         + Command: `sshd -T` exit_status is expected to cmp == 0
+         + Command: `sshd -T` stdout is expected to match /^permitrootlogin no$/i
+         + Command: `sshd -T` stdout is expected to match /^passwordauthentication no$/i
       Grant sudo only through the admin group
          + Group ops is expected to exist
          + File /etc/sudoers.d/ops content is expected to cmp == "%ops ALL=(ALL) ALL\n"
@@ -642,8 +645,8 @@ Chef Infra Client corrected both and left everything else alone:
 
 ```text
   * file[/etc/issue.net] action create (up to date)
-  * file[/etc/ssh/sshd_config.d/50-fleet-baseline.conf] action create
-    - update content in file /etc/ssh/sshd_config.d/50-fleet-baseline.conf from e7be8a to 18e8b3
+  * file[/etc/ssh/sshd_config.d/00-fleet-baseline.conf] action create
+    - update content in file /etc/ssh/sshd_config.d/00-fleet-baseline.conf from e7be8a to 18e8b3
   * service[ssh] action nothing (skipped due to action :nothing)
   * file[/etc/sudoers.d/ops] action create
     - change mode from '0644' to '0440'
