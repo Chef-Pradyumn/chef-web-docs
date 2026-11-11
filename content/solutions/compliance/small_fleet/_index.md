@@ -62,7 +62,7 @@ A cookbook named `fleet_baseline` that sets, on every server:
 
 - The login banner in `/etc/issue.net`.
 - An SSH configuration file that turns off root login and password authentication.
-- An `ops` group, and a sudoers file that grants administrative access only to that group.
+- An `ops` group, and a sudoers file that grants administrative access to that group.
 
 The cookbook also delivers a Chef InSpec profile that checks those settings.
 The Policyfile turns on the Compliance Phase,
@@ -228,6 +228,8 @@ What each part does:
 : Creates the group if it doesn't exist.
   Add members through your identity provider or with a separate `user` resource,
   so the cookbook defines who has access and the group membership defines who that is.
+  This recipe grants the admin group sudo access; it doesn't purge distribution-default
+  groups like `%sudo` or `%wheel`. Audit other sudoers entries if your policy requires strict exclusivity.
 
 `remote_directory`
 : Copies the Chef InSpec profile from the cookbook's `files/default/fleet-baseline-profile` directory to the server.
@@ -295,8 +297,8 @@ end
 
 control 'fleet-03' do
   impact 'high'
-  title 'Grant sudo only through the admin group'
-  desc 'Administrative access must come from one group so that access reviews have one place to look.'
+  title 'Grant sudo access to the admin group'
+  desc 'The approved administrative group must be defined and granted full sudo privileges.'
   tag 'fleet', 'access'
 
   describe group(input('admin_group')) do
@@ -468,7 +470,7 @@ Compliance report:
          + Command: `sshd -T` exit_status is expected to cmp == 0
          + Command: `sshd -T` stdout is expected to match /^permitrootlogin no$/i
          + Command: `sshd -T` stdout is expected to match /^passwordauthentication no$/i
-      Grant sudo only through the admin group
+      Grant sudo access to the admin group
          + Group ops is expected to exist
          + File /etc/sudoers.d/ops content is expected to cmp == "%ops ALL=(ALL) ALL\n"
          + File /etc/sudoers.d/ops mode is expected to cmp == "0440"
