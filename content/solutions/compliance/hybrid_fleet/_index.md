@@ -66,10 +66,10 @@ That's why the same model works in a data center and in a cloud.
 
 {{< warning >}}
 
-**Check the lifecycle before you design.**
-Chef Infra Server is deprecated, and Chef 360 Platform is its replacement.
-The [supported versions](/versions/) page lists the end-of-life dates for Chef Infra Server, Chef Automate, and Chef Infra Client.
-Dates can change, so confirm them on that page and with your Chef account team before you commit to a design.
+**Plan to move from Chef Infra Server to DSM.**
+Chef Infra Server is deprecated, and Declarative State Management (DSM) in Chef 360 Platform is its direct replacement.
+All of the capabilities of Chef Infra Server are available in DSM, so you can use DSM as the central service for every location.
+See [Migrate from Chef Infra Server](#migrate-from-chef-infra-server).
 
 {{< /warning >}}
 
@@ -345,7 +345,7 @@ See [deployment models](/360/latest/chef_360_product/deployment_models/) and the
 Chef 360 Platform has four core areas.
 Node Management enrolls nodes and tracks their identity, status, and installed skills.
 Chef Courier runs ad hoc or scheduled jobs across nodes.
-Declarative State Management (DSM) stores the cookbooks, policies, and node metadata that nodes retrieve, and it's the part that replaces Chef Infra Server.
+Declarative State Management (DSM) stores the cookbooks, policies, and node metadata that nodes retrieve, and it's the direct replacement for Chef Infra Server.
 Platform services provide identity, access, and the web interface.
 
 Installing and running Chef 360 Platform requires the right product entitlement.
@@ -531,7 +531,6 @@ The process in outline:
 In a hybrid estate, step 5 reaches nodes in every location, so check that the nodes in each cloud and data center can reach the new address before you redirect them.
 
 Before you start, check these prerequisites: Chef Infra Server 12 or later, Chef 360 Platform 1.6.1 or later, and administrative access to the server you're exporting from.
-The documentation also says unsupported objects can leave an import only partly successful, so verify the result.
 See [Migrate from Chef Infra Server](/360/latest/migrate/on_prem_to_self_managed/) for the commands and the troubleshooting steps.
 If you use Chef 360 SaaS instead, the process is different, so follow [Migrate to DSM in Chef SaaS](/360/latest/migrate/on_prem_to_saas/).
 
