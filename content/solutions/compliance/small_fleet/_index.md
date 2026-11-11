@@ -106,8 +106,10 @@ You need:
 - **Linux servers enrolled in Chef 360 Platform** that meet the
   [Chef 360 Platform node requirements](/360/saas/system_requirements/).
   Chef Courier skills and DSM node management run on x86_64 Linux and on Windows Server 2019 and later.
-- **Chef Infra Client on each server.**
-  Nodes enrolled in DSM authenticate with client keys managed by DSM.
+- **Chef Infra Client on each server, registered separately with DSM.**
+  Node Management enrollment for Courier doesn't register Chef Infra Client with DSM.
+  Before running the examples, register each node with DSM and configure `/etc/chef/client.rb` with the DSM organization URL in `chef_server_url` and the node's client key path in `client_key`.
+  Confirm that each node can authenticate to DSM.
   Chef Infra Client 19 may also need a license key, depending on where you downloaded it ---
   see [Apply a license in Chef Infra Client](/client/latest/license/).
 - **A Git repository** for the cookbook and Policyfile.
