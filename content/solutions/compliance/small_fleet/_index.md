@@ -339,7 +339,6 @@ default['audit']['profiles']['fleet-baseline'] = {
   'path' => '/var/chef/compliance/fleet-baseline',
 }
 default['audit']['reporter'] = %w(cli json-file)
-default['audit']['json_file']['location'] = '/var/chef/compliance/report.json'
 ```
 
 The `audit` attributes configure the [Compliance Phase](/client/latest/features/chef_compliance_phase/):
@@ -352,7 +351,9 @@ The `audit` attributes configure the [Compliance Phase](/client/latest/features/
 
 `reporter`
 : Prints results in the Chef Infra Client output with `cli`,
-  and writes the full report to the `json_file` location with `json-file`.
+  and saves timestamped JSON reports under `<chef_cache_path>/compliance-reports/`
+  (typically `/var/chef/cache/compliance-reports/compliance-<timestamp>.json`) with `json-file`.
+  Because each run gets its own timestamped file, previous assessments are preserved as an audit trail.
   If you report to Chef Automate, see the
   [Compliance Phase reporters](/client/latest/features/chef_compliance_phase/#reporters).
 
@@ -680,7 +681,7 @@ When a Chef Courier job reports a failure, check which step failed:
 - **A compliance control failed but Chef Infra Client converged.**
   The setting the recipe applied isn't what the profile expects,
   or another process altered it after the recipe ran.
-  Read `/var/chef/compliance/report.json` on the server or in Chef Automate.
+  Inspect the latest report in `/var/chef/cache/compliance-reports/` on the server or in Chef Automate.
   If a failure is accepted, such as a legacy server that needs password logins until a dated migration,
   record it as a waiver with an expiration date, as described in
   [Waive an exception you've accepted](/solutions/compliance/ssh_baseline/#step-7-waive-an-exception-youve-accepted).
