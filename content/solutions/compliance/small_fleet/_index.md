@@ -436,11 +436,15 @@ In **DSM > Policy Groups**, you can view the `canary` group and the nodes assign
 
 ## Step 7: Converge the canary node
 
-Assign your canary server to the `canary` policy group in DSM:
+From your DSM-configured workstation, assign both the `canary` policy group and the `fleet_baseline` policy name to the canary node:
 
-1. In the Chef 360 Platform UI, go to **DSM > Nodes**.
-2. Locate your canary server, select the three dots in the **Actions** column, and select **Update Policy Group**.
-3. Select **canary**, and select **Update Node Policy Group**.
+```shell
+knife node policy set <canary-node-name> canary fleet_baseline
+```
+
+Replace `<canary-node-name>` with the node's registered DSM name.
+You can also view or update policy group assignments in the Chef 360 Platform UI under **DSM > Nodes** by selecting **Update Policy Group**.
+After you verify the revision and publish it to `fleet`, repeat this assignment for each fleet node using the `fleet` policy group.
 
 Run Chef Infra Client on the canary server over SSH or with a one-time command:
 
