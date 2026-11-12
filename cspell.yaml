@@ -5,6 +5,9 @@ version: '0.2'
 # language - current active spelling language
 language: en_US
 
+words:
+- unmanaged
+
 dictionaries:
 - 360-docs
 - chef
