@@ -11,7 +11,7 @@ gh_repo = "chef-web-docs"
   weight = 12
 +++
 
-<!-- cspell:ignore LanmanServer WinStations RemoteRegistry SMB1Protocol winrm -->
+<!-- cspell:ignore LanmanServer WinStations RemoteRegistry SMB1Protocol unmanaged walkthrough winrm -->
 
 Windows Server systems across data centers and cloud accounts require strict, repeatable baseline configurations.
 In an unmanaged environment, administrators often configure settings by hand using Server Manager,
