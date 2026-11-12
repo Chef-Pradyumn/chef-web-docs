@@ -11,7 +11,7 @@ gh_repo = "chef-web-docs"
   weight = 10
 +++
 
-<!-- cspell:ignore dropin uncordon -->
+<!-- cspell:ignore dropin uncordon daemonsets -->
 
 A Kubernetes cluster is only as consistent as the machines under it.
 Every node needs the right kernel settings, the right container runtime settings, and the right kubelet configuration.
