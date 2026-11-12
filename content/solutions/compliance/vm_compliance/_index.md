@@ -195,7 +195,7 @@ control 'vm-03' do
 
   describe file('/etc/machine-id') do
     its('content') { should match(/\A\h{32}\s*\z/) }
-    its('content') { should_not match(/\A#{input('template_machine_id')}/) }
+    its('content.strip') { should_not eq input('template_machine_id').strip }
   end
 end
 ```
@@ -302,7 +302,7 @@ Target:    ssh://admin@app01.example.com:22
      expected Processes vmtoolsd to exist
   ×  vm-03: Regenerate the machine ID from the template (1 failed)
      ✔  File /etc/machine-id content is expected to match /\A\h{32}\s*\z/
-     ×  File /etc/machine-id content is expected not to match /\A5f1a7c3e9b2d4e6f8a0b1c2d3e4f5a6b/
+     ×  File /etc/machine-id content.strip is expected not to eq "5f1a7c3e9b2d4e6f8a0b1c2d3e4f5a6b"
 
 
 Profile Summary: 1 successful control, 2 control failures, 0 controls skipped

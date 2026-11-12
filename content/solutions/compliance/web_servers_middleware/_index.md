@@ -81,7 +81,7 @@ A Chef InSpec profile with six controls that assert:
 - The HTTPS listener refuses SSL 3.0, TLS 1.0, and TLS 1.1.
 - Responses send HTTP Strict Transport Security (HSTS) with a `max-age` of at least six months,
   and send `X-Content-Type-Options` and `X-Frame-Options`.
-- The server certificate is valid for at least 30 more days and uses a key of at least 2048 bits.
+- The configured certificate file is valid for at least 30 more days and uses a key of at least 2048 bits.
 - The Tomcat shutdown port is disabled.
 - The Tomcat example, documentation, and management applications aren't deployed.
 
@@ -119,7 +119,7 @@ You need:
   The `ssl` resource opens TLS connections to the target's host name,
   so a firewall between you and the server affects the result.
 - **The paths your installation uses**:
-  the main NGINX configuration file, the certificate NGINX presents,
+  the main NGINX configuration file, the certificate file configured for NGINX,
   and the Tomcat `CATALINA_BASE` directory.
   The defaults on this page are `/etc/nginx/nginx.conf`, `/etc/nginx/tls/server.crt`, and `/opt/tomcat`.
 
@@ -175,7 +175,7 @@ inputs:
     type: Numeric
     value: 15768000
   - name: certificate_path
-    description: Path to the certificate the web server presents
+    description: Path to the certificate file configured for the web server
     type: String
     value: /etc/nginx/tls/server.crt
   - name: certificate_min_days
@@ -218,11 +218,29 @@ control 'web-01' do
     file(input('nginx_conf_path')).exist?
   end
 
-  server_tokens = nginx_conf(input('nginx_conf_path')).params.dig('http', 0, 'server_tokens').to_a.flatten
+  conf = nginx_conf(input('nginx_conf_path'))
 
   describe 'server_tokens in the NGINX http block' do
-    subject { server_tokens }
+    subject { conf.params.dig('http', 0, 'server_tokens').to_a.flatten }
     it { should cmp ['off'] }
+  end
+
+  conf.servers.each_with_index do |server, idx|
+    describe "server_tokens override in NGINX server block #{idx + 1}" do
+      subject { server.params['server_tokens'].to_a.flatten }
+      it { should_not cmp ['on'] }
+    end
+  end
+
+  conf.locations.each_with_index do |loc, idx|
+    describe "server_tokens override in NGINX location block #{idx + 1}" do
+      subject { loc.params['server_tokens'].to_a.flatten }
+      it { should_not cmp ['on'] }
+    end
+  end
+
+  describe http(input('site_url'), ssl_verify: false) do
+    its('headers.Server') { should_not match %r{nginx/\d+}i }
   end
 end
 
@@ -263,7 +281,7 @@ end
 control 'web-04' do
   impact 'high'
   title 'Renew certificates before they expire'
-  desc 'The certificate the web server presents must remain valid for at least the configured number of days.'
+  desc 'The certificate file configured for the web server must remain valid for at least the configured number of days.'
   desc 'rationale', 'An expired certificate takes the service down for every client that validates it.'
   tag 'web', 'tls', 'certificate'
 
@@ -309,12 +327,14 @@ end
 
 What's specific to web servers and middleware here:
 
-`nginx_conf(...).params.dig('http', 0, 'server_tokens')`
+`nginx_conf` and `server_tokens`
 : The [`nginx_conf` resource](/inspec/latest/resources/core/nginx_conf/)
   parses `nginx.conf` and every file it includes into nested `params`.
-  `web-01` reads `server_tokens` from the first `http` block.
-  If the directive isn't set at all, the value is empty and the control fails ---
-  which is correct, because NGINX sends its version by default.
+  `web-01` checks that `server_tokens` is `off` in the global `http` block,
+  and iterates over `conf.servers` and `conf.locations` to ensure no virtual host
+  or location block overrides it with `server_tokens on;`.
+  It also checks the live `Server` response header with `http` to confirm
+  the server doesn't disclose its version number on the wire.
   The `nginx_conf` resource is marked experimental, so confirm it parses your configuration
   by running `web-01` against one server before you roll it out.
 
@@ -335,9 +355,13 @@ What's specific to web servers and middleware here:
 
 `x509_certificate`
 : The [`x509_certificate` resource](/inspec/latest/resources/core/x509_certificate/)
-  reads the certificate file and reports `validity_in_days` as the time left until it expires.
+  reads the certificate file on disk and reports `validity_in_days` as the time left until it expires.
   Set `certificate_min_days` longer than your renewal process takes,
   so a failure is a warning you can act on, not an outage.
+  This control checks the deployed certificate file.
+  To test the certificate presented on the wire during a live TLS handshake
+  (accounting for load balancers or SNI virtual hosts),
+  run an external certificate check against the public endpoint.
 
 `xml(...)` with `Server/@port`
 : The [`xml` resource](/inspec/latest/resources/core/xml/)
@@ -424,13 +448,14 @@ Profile:   Web server and middleware baseline (web-tier-baseline)
 Version:   0.1.0
 Target:    ssh://admin@web01.example.com:22
 
-  ×  web-01: Don't disclose the NGINX version
+  ×  web-01: Don't disclose the NGINX version (1 failed)
      ×  server_tokens in the NGINX http block is expected to cmp == ["off"]
 
      expected: ["off"]
           got: ["on"]
 
      (compared using `cmp` matcher)
+     ✔  HTTP GET on https://localhost/ headers.Server is expected not to match /nginx\/\d+/i
 
   ✔  web-02: Accept only TLS 1.2 and later
      ✔  SSL/TLS on web01.example.com:443 with protocol == "ssl3" is expected not to be enabled

@@ -62,7 +62,7 @@ A cookbook named `fleet_baseline` that sets, on every server:
 
 - The login banner in `/etc/issue.net`.
 - An SSH configuration file that turns off root login and password authentication.
-- An `ops` group, and a sudoers file that grants administrative access only to that group.
+- An `ops` group, and a sudoers file that grants administrative access to that group.
 
 The cookbook also delivers a Chef InSpec profile that checks those settings.
 The Policyfile turns on the Compliance Phase,
@@ -106,8 +106,10 @@ You need:
 - **Linux servers enrolled in Chef 360 Platform** that meet the
   [Chef 360 Platform node requirements](/360/saas/system_requirements/).
   Chef Courier skills and DSM node management run on x86_64 Linux and on Windows Server 2019 and later.
-- **Chef Infra Client on each server.**
-  Nodes enrolled in DSM authenticate with client keys managed by DSM.
+- **Chef Infra Client on each server, registered separately with DSM.**
+  Node Management enrollment for Courier doesn't register Chef Infra Client with DSM.
+  Before running the examples, register each node with DSM and configure `/etc/chef/client.rb` with the DSM organization URL in `chef_server_url` and the node's client key path in `client_key`.
+  Confirm that each node can authenticate to DSM.
   Chef Infra Client 19 may also need a license key, depending on where you downloaded it ---
   see [Apply a license in Chef Infra Client](/client/latest/license/).
 - **A Git repository** for the cookbook and Policyfile.
@@ -166,7 +168,7 @@ directory '/etc/ssh/sshd_config.d' do
   recursive true
 end
 
-file '/etc/ssh/sshd_config.d/50-fleet-baseline.conf' do
+file '/etc/ssh/sshd_config.d/00-fleet-baseline.conf' do
   content <<~CONF
     PermitRootLogin no
     PasswordAuthentication no
@@ -214,6 +216,9 @@ What each part does:
 : Declare the content, owner, group, and mode a file or directory must have.
   Chef Infra Client compares that declaration with the server on every run
   and changes only what's different.
+  Using `00-fleet-baseline.conf` ensures this file sorts before other drop-ins
+  such as `50-cloud-init.conf`. Because OpenSSH uses the first value encountered
+  for a setting, an early file prefix prevents cloud-init or package defaults from taking precedence.
   If someone edits `/etc/sudoers.d/ops` by hand, the next run puts it back.
 
 `notifies :restart, ... :delayed`
@@ -225,6 +230,8 @@ What each part does:
 : Creates the group if it doesn't exist.
   Add members through your identity provider or with a separate `user` resource,
   so the cookbook defines who has access and the group membership defines who that is.
+  This recipe grants the admin group sudo access; it doesn't purge distribution-default
+  groups like `%sudo` or `%wheel`. Audit other sudoers entries if your policy requires strict exclusivity.
 
 `remote_directory`
 : Copies the Chef InSpec profile from the cookbook's `files/default/fleet-baseline-profile` directory to the server.
@@ -280,20 +287,20 @@ end
 control 'fleet-02' do
   impact 'high'
   title 'Turn off root and password SSH logins'
-  desc 'SSH must refuse root logins and password authentication.'
+  desc 'Effective SSH daemon configuration must refuse root logins and password authentication.'
   tag 'fleet', 'ssh'
 
-  describe file('/etc/ssh/sshd_config.d/50-fleet-baseline.conf') do
-    its('content') { should match(/^PermitRootLogin no$/) }
-    its('content') { should match(/^PasswordAuthentication no$/) }
-    its('mode') { should cmp '0600' }
+  describe command('sshd -T') do
+    its('exit_status') { should cmp 0 }
+    its('stdout') { should match(/^permitrootlogin no$/i) }
+    its('stdout') { should match(/^passwordauthentication no$/i) }
   end
 end
 
 control 'fleet-03' do
   impact 'high'
-  title 'Grant sudo only through the admin group'
-  desc 'Administrative access must come from one group so that access reviews have one place to look.'
+  title 'Grant sudo access to the admin group'
+  desc 'The approved administrative group must be defined and granted full sudo privileges.'
   tag 'fleet', 'access'
 
   describe group(input('admin_group')) do
@@ -332,7 +339,6 @@ default['audit']['profiles']['fleet-baseline'] = {
   'path' => '/var/chef/compliance/fleet-baseline',
 }
 default['audit']['reporter'] = %w(cli json-file)
-default['audit']['json_file']['location'] = '/var/chef/compliance/report.json'
 ```
 
 The `audit` attributes configure the [Compliance Phase](/client/latest/features/chef_compliance_phase/):
@@ -345,7 +351,9 @@ The `audit` attributes configure the [Compliance Phase](/client/latest/features/
 
 `reporter`
 : Prints results in the Chef Infra Client output with `cli`,
-  and writes the full report to the `json_file` location with `json-file`.
+  and saves timestamped JSON reports under `<chef_cache_path>/compliance-reports/`
+  (typically `/var/chef/cache/compliance-reports/compliance-<timestamp>.json`) with `json-file`.
+  Because each run gets its own timestamped file, previous assessments are preserved as an audit trail.
   If you report to Chef Automate, see the
   [Compliance Phase reporters](/client/latest/features/chef_compliance_phase/#reporters).
 
@@ -429,11 +437,15 @@ In **DSM > Policy Groups**, you can view the `canary` group and the nodes assign
 
 ## Step 7: Converge the canary node
 
-Assign your canary server to the `canary` policy group in DSM:
+From your DSM-configured workstation, assign both the `canary` policy group and the `fleet_baseline` policy name to the canary node:
 
-1. In the Chef 360 Platform UI, go to **DSM > Nodes**.
-2. Locate your canary server, select the three dots in the **Actions** column, and select **Update Policy Group**.
-3. Select **canary**, and select **Update Node Policy Group**.
+```shell
+knife node policy set <canary-node-name> canary fleet_baseline
+```
+
+Replace `<canary-node-name>` with the node's registered DSM name.
+You can also view or update policy group assignments in the Chef 360 Platform UI under **DSM > Nodes** by selecting **Update Policy Group**.
+After you verify the revision and publish it to `fleet`, repeat this assignment for each fleet node using the `fleet` policy group.
 
 Run Chef Infra Client on the canary server over SSH or with a one-time command:
 
@@ -462,10 +474,10 @@ Compliance report:
          + File /etc/issue.net content is expected to match /Authorized use only/
          + File /etc/issue.net mode is expected to cmp == "0644"
       Turn off root and password SSH logins
-         + File /etc/ssh/sshd_config.d/50-fleet-baseline.conf content is expected to match /^PermitRootLogin no$/
-         + File /etc/ssh/sshd_config.d/50-fleet-baseline.conf content is expected to match /^PasswordAuthentication no$/
-         + File /etc/ssh/sshd_config.d/50-fleet-baseline.conf mode is expected to cmp == "0600"
-      Grant sudo only through the admin group
+         + Command: `sshd -T` exit_status is expected to cmp == 0
+         + Command: `sshd -T` stdout is expected to match /^permitrootlogin no$/i
+         + Command: `sshd -T` stdout is expected to match /^passwordauthentication no$/i
+      Grant sudo access to the admin group
          + Group ops is expected to exist
          + File /etc/sudoers.d/ops content is expected to cmp == "%ops ALL=(ALL) ALL\n"
          + File /etc/sudoers.d/ops mode is expected to cmp == "0440"
@@ -642,8 +654,8 @@ Chef Infra Client corrected both and left everything else alone:
 
 ```text
   * file[/etc/issue.net] action create (up to date)
-  * file[/etc/ssh/sshd_config.d/50-fleet-baseline.conf] action create
-    - update content in file /etc/ssh/sshd_config.d/50-fleet-baseline.conf from e7be8a to 18e8b3
+  * file[/etc/ssh/sshd_config.d/00-fleet-baseline.conf] action create
+    - update content in file /etc/ssh/sshd_config.d/00-fleet-baseline.conf from e7be8a to 18e8b3
   * service[ssh] action nothing (skipped due to action :nothing)
   * file[/etc/sudoers.d/ops] action create
     - change mode from '0644' to '0440'
@@ -669,7 +681,7 @@ When a Chef Courier job reports a failure, check which step failed:
 - **A compliance control failed but Chef Infra Client converged.**
   The setting the recipe applied isn't what the profile expects,
   or another process altered it after the recipe ran.
-  Read `/var/chef/compliance/report.json` on the server or in Chef Automate.
+  Inspect the latest report in `/var/chef/cache/compliance-reports/` on the server or in Chef Automate.
   If a failure is accepted, such as a legacy server that needs password logins until a dated migration,
   record it as a waiver with an expiration date, as described in
   [Waive an exception you've accepted](/solutions/compliance/ssh_baseline/#step-7-waive-an-exception-youve-accepted).
