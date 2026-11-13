@@ -5,7 +5,7 @@ title = "Virtualization"
   identifier = "overview/solutions/compliance/virtualization"
   parent = "overview/solutions/compliance"
   title = "Virtualization"
-  weight = 80
+  weight = 90
 +++
 
 Chef Compliance has current coverage for **1 virtualization benchmark**.
@@ -32,5 +32,6 @@ For what each coverage term means, see
 - [Compliance solution overview](/solutions/compliance/)
 - [Compliance audit](/solutions/compliance/#compliance-audit)
 - [Compliance remediation](/solutions/compliance/#compliance-remediation)
+- [Build custom compliance checks with Chef InSpec](/solutions/compliance/extend/)
 - [Chef InSpec](/inspec/latest/)
 - [Compliance reporting in Chef Automate](/automate/reports/)

@@ -5,7 +5,7 @@ title = "Network / Infrastructure"
   identifier = "overview/solutions/compliance/network_infrastructure"
   parent = "overview/solutions/compliance"
   title = "Network / Infrastructure"
-  weight = 90
+  weight = 80
 +++
 
 Chef Compliance has current coverage for **2 network / infrastructure benchmarks**.
@@ -33,5 +33,6 @@ For what each coverage term means, see
 - [Compliance solution overview](/solutions/compliance/)
 - [Compliance audit](/solutions/compliance/#compliance-audit)
 - [Compliance remediation](/solutions/compliance/#compliance-remediation)
+- [Build custom compliance checks with Chef InSpec](/solutions/compliance/extend/)
 - [Chef InSpec](/inspec/latest/)
 - [Compliance reporting in Chef Automate](/automate/reports/)
