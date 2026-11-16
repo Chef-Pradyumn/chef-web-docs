@@ -11,6 +11,7 @@ gh_repo = "chef-web-docs"
   weight = 17
 +++
 
+<!-- cspell:ignore permitrootlogin maxauthtries openssh sshd -->
 
 Servers in your own data centers drift as admins change them by hand.
 A package gets upgraded on one host and not another.
@@ -72,22 +73,24 @@ The cookbooks, recipes, and resources in the example are the same whichever cent
 
 ## What you'll build
 
-A Chef Infra cookbook that does two things on a node:
+A Chef Infra cookbook that sets two real OpenSSH server settings on a node:
 
-- Creates a configuration directory.
-- Manages one configuration file, so a hand edit to the file is reverted at the next run.
+- Installs the OpenSSH server and keeps it running.
+- Manages an `sshd` configuration drop-in that sets `PermitRootLogin` and `MaxAuthTries`, so a hand edit is reverted at the next run and `sshd` picks up the correction.
 
-You'll run it on one node, change the file by hand, and watch Chef correct it.
+You'll run it on one node, change a setting by hand, and watch Chef correct it.
+You'll also check the live `sshd` settings before and after, so you can see that the node uses the value Chef manages.
 Then you see how the same cookbook reaches many nodes.
 
 ## Before you begin
 
 You need:
 
-- [Chef Workstation](/workstation/latest/install/) on the machine where you write and test code.
-  It includes the `chef` and `chef-client` commands and the testing tools.
-- A test node or a scratch directory.
-  The example runs in your workstation's local mode and writes to a temporary directory, so it doesn't change the system.
+- [Chef Workstation](/workstation/latest/install/) installed on a disposable Linux machine with systemd and root access, such as a virtual machine or a container.
+  It includes the `chef` and `chef-client` commands and the testing tools, and every command in this example runs on that machine.
+  The example installs the OpenSSH server and writes to `/etc/ssh/sshd_config.d`, so don't run it on a machine you depend on.
+  The output on this page is from Ubuntu 24.04, where the service is named `ssh`. On Red Hat family systems it's `sshd`, so the recipe picks the name by platform family, but that path wasn't tested for this page.
+- An `sshd` configuration that includes the `sshd_config.d` directory, which Ubuntu 22.04 and later and Red Hat Enterprise Linux 9 do by default.
 - A Progress Chef license, for bootstrapping nodes and for commercial downloads.
   Chef Infra Client might ask you to accept the license terms the first time you run it.
 
@@ -114,10 +117,17 @@ To create a cookbook and a recipe that describes the state you want, follow thes
    The cookbook contains a `recipes/default.rb` for your recipe, a `metadata.rb`, a `Policyfile.rb`, a `kitchen.yml` for testing, and a `test` directory.
    See [cookbooks](/client/latest/cookbooks/) for what each part is for.
 
-1. Create `cookbooks/onprem_baseline/attributes/default.rb`:
+1. Generate the attributes file and set its contents:
+
+   ```shell
+   chef generate attribute cookbooks/onprem_baseline default
+   ```
+
+   Then put these lines in `cookbooks/onprem_baseline/attributes/default.rb`:
 
    ```ruby
-   default['onprem_baseline']['config_dir'] = '/etc/onprem-baseline'
+   default['onprem_baseline']['permit_root_login'] = 'no'
+   default['onprem_baseline']['max_auth_tries'] = 3
    ```
 
    An attribute holds a value that changes between nodes or environments, so the recipe doesn't have to.
@@ -125,105 +135,134 @@ To create a cookbook and a recipe that describes the state you want, follow thes
 1. Replace `cookbooks/onprem_baseline/recipes/default.rb` with:
 
    ```ruby
-   directory node['onprem_baseline']['config_dir'] do
-     mode '0755'
-     recursive true
+   package 'openssh-server'
+
+   service 'sshd' do
+     service_name platform_family?('debian') ? 'ssh' : 'sshd'
+     action %i(enable start)
    end
 
-   file "#{node['onprem_baseline']['config_dir']}/ssh-policy.conf" do
+   file '/etc/ssh/sshd_config.d/00-onprem-baseline.conf' do
      content <<~CONF
        # Managed by Chef. Local edits are replaced on the next Chef Infra Client run.
-       PermitRootLogin no
-       MaxAuthTries 3
+       PermitRootLogin #{node['onprem_baseline']['permit_root_login']}
+       MaxAuthTries #{node['onprem_baseline']['max_auth_tries']}
      CONF
      mode '0644'
+     verify 'sshd -t -f %{path}'
+     notifies :reload, 'service[sshd]', :delayed
    end
    ```
 
    Each block is a [resource](/client/latest/resources/bundled/).
-   `directory` and `file` state what should exist and how.
+   `package`, `service`, and `file` state what should exist and how.
    They don't say how to create it, because Chef Infra Client works that out for the platform it's running on.
-   Other resources follow the same pattern, such as [`package`](/client/latest/resources/bundled/package/), [`service`](/client/latest/resources/bundled/service/), [`template`](/client/latest/resources/bundled/template/), and [`user`](/client/latest/resources/bundled/user/).
+   Other resources follow the same pattern, such as [`template`](/client/latest/resources/bundled/template/) and [`user`](/client/latest/resources/bundled/user/).
+
+   Three details make this a real policy rather than a file on disk:
+
+   - `sshd` reads the file. OpenSSH uses the first value it finds for each setting, and the `00-` prefix makes this file load before drop-ins such as `50-cloud-init.conf`.
+   - `verify` runs `sshd -t` on the new content before Chef writes it, so a typo can't replace a working configuration.
+   - `notifies` reloads `sshd` only when the file changes, so the node uses the new value without a restart on every run.
 
 ## Converge a node and correct drift
 
 To see Chef Infra Client apply the cookbook and then undo a manual change, follow these steps:
 
-1. Create `attrs.json` in the repository, so the example writes to a temporary directory instead of `/etc`:
-
-   ```json
-   {
-     "onprem_baseline": {
-       "config_dir": "/tmp/onprem-baseline-demo"
-     }
-   }
-   ```
-
-   On a real node, leave the default and don't use this file.
-
-1. Run the recipe in local mode, which runs a lightweight Chef Infra Server on your workstation for the length of the run:
+1. Run the recipe in local mode, which runs a lightweight Chef Infra Server on the machine for the length of the run.
+   Run it as root, because it installs a package and writes to `/etc`:
 
    ```shell
-   chef-client -z -o 'recipe[onprem_baseline]' -j attrs.json
+   sudo chef-client -z -o 'recipe[onprem_baseline]'
    ```
 
    Accept the license prompt if you see one.
-   On a new node, both resources are created:
+   On a new node, Chef installs the package, starts the service, writes the file, and reloads `sshd`:
 
    ```text
-   Converging 2 resources
+   Converging 3 resources
    Recipe: onprem_baseline::default
-     * directory[/tmp/onprem-baseline-demo] action create
-       - create new directory /tmp/onprem-baseline-demo
-       - change mode from '' to '0755'
-     * file[/tmp/onprem-baseline-demo/ssh-policy.conf] action create
-       - create new file /tmp/onprem-baseline-demo/ssh-policy.conf
-       - update content in file /tmp/onprem-baseline-demo/ssh-policy.conf from none to 10dbaf
+     * apt_package[openssh-server] action install
+       - install version 1:9.6p1-3ubuntu13.20 of package openssh-server
+     * service[sshd] action enable
+       - enable service service[sshd]
+     * service[sshd] action start
+       - start service service[sshd]
+     * file[/etc/ssh/sshd_config.d/00-onprem-baseline.conf] action create
+       - create new file /etc/ssh/sshd_config.d/00-onprem-baseline.conf
+       - update content in file /etc/ssh/sshd_config.d/00-onprem-baseline.conf from none to 10dbaf
        - change mode from '' to '0644'
-   Infra Phase complete, 2/2 resources updated in 06 seconds
+     * service[sshd] action reload
+       - reload service service[sshd]
+   Infra Phase complete, 5/5 resources updated in 08 seconds
    ```
+
+   The summary counts each action, so the `service` resource counts more than once.
+
+1. Check the settings that `sshd` itself reports:
+
+   ```shell
+   sudo sshd -T | grep -iE '^(permitrootlogin|maxauthtries)'
+   ```
+
+   ```text
+   maxauthtries 3
+   permitrootlogin no
+   ```
+
+   `sshd -T` prints the effective configuration, so this shows that the node uses the values in the cookbook.
 
 1. Run it again.
    Nothing has drifted, so nothing changes:
 
    ```text
-   * directory[/tmp/onprem-baseline-demo] action create (up to date)
-   * file[/tmp/onprem-baseline-demo/ssh-policy.conf] action create (up to date)
-   Infra Phase complete, 0/2 resources updated in 03 seconds
+   * apt_package[openssh-server] action install (up to date)
+   * service[sshd] action enable (up to date)
+   * service[sshd] action start (up to date)
+   * file[/etc/ssh/sshd_config.d/00-onprem-baseline.conf] action create (up to date)
+   Infra Phase complete, 0/4 resources updated in 00 seconds
    ```
 
    This is idempotence, and it's why you can run Chef on a schedule without worrying about what it will do to a node that's already correct.
 
-1. Make a change by hand, as an admin might during an incident:
+1. Make a change by hand, as an admin might during an incident, and check the effect:
 
    ```shell
-   sed -i.bak 's/PermitRootLogin no/PermitRootLogin yes/' /tmp/onprem-baseline-demo/ssh-policy.conf
+   sudo sed -i 's/PermitRootLogin no/PermitRootLogin yes/' /etc/ssh/sshd_config.d/00-onprem-baseline.conf
+   sudo sshd -T | grep -i '^permitrootlogin'
    ```
+
+   ```text
+   permitrootlogin yes
+   ```
+
+   Root login is now allowed on this node.
 
 1. Run the recipe again:
 
    ```shell
-   chef-client -z -o 'recipe[onprem_baseline]' -j attrs.json
+   sudo chef-client -z -o 'recipe[onprem_baseline]'
    ```
 
-   Chef Infra Client finds the difference, reverts it, and shows exactly what it changed:
+   Chef Infra Client finds the difference, reverts it, reloads `sshd`, and shows exactly what it changed:
 
    ```text
-   * directory[/tmp/onprem-baseline-demo] action create (up to date)
-   * file[/tmp/onprem-baseline-demo/ssh-policy.conf] action create
-     - update content in file /tmp/onprem-baseline-demo/ssh-policy.conf from f8dd13 to 10dbaf
+   * file[/etc/ssh/sshd_config.d/00-onprem-baseline.conf] action create
+     - update content in file /etc/ssh/sshd_config.d/00-onprem-baseline.conf from f8dd13 to 10dbaf
        @@ -1,4 +1,4 @@
         # Managed by Chef. Local edits are replaced on the next Chef Infra Client run.
        -PermitRootLogin yes
        +PermitRootLogin no
         MaxAuthTries 3
-   Infra Phase complete, 1/2 resources updated in 03 seconds
+   * service[sshd] action reload
+     - reload service service[sshd]
+   Infra Phase complete, 2/5 resources updated in 00 seconds
    ```
 
-   The directory was already correct, so only one of the two resources changed.
-   Run it once more, and it returns to `0/2 resources updated`.
+   The package and service were already correct, so only the file and the reload changed.
+   Run `sudo sshd -T | grep -i '^permitrootlogin'` again to see `permitrootlogin no`, and run the recipe once more to see `0/4 resources updated`.
 
-The output here is from a test run, trimmed, with paths shortened.
+The output here is from a test run on Ubuntu 24.04, trimmed.
 Your checksums and timings differ.
 
 The same loop, run on a schedule on every node, is how Chef keeps a fleet in a known state.
