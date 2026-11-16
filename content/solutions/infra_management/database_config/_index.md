@@ -467,7 +467,7 @@ Use Test Kitchen to converge the cookbook on a real Linux machine before you rol
 The `kitchen.yml` that `chef generate cookbook` creates is the starting point.
 
 To check the database itself after a converge, Chef InSpec has resources that run queries, including [`postgres_session`](/inspec/resources/postgres_session/) and [`mysql_session`](/inspec/resources/mysql_session/).
-The [Database compliance](/solutions/compliance/databases/) page shows how to use them against a running database.
+The [Database compliance](/solutions/compliance/databases/) page lists the database benchmarks that Chef Compliance covers.
 
 ## Roll changes out safely
 
