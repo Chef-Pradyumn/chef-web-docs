@@ -8,7 +8,7 @@ gh_repo = "chef-web-docs"
   identifier = "overview/solutions/compliance/on_prem_fleet"
   parent = "overview/solutions/compliance"
   title = "The Chef way of managing an on-prem fleet"
-  weight = 14
+  weight = 13
 +++
 
 
