@@ -74,17 +74,16 @@ and create a Chef Courier job that triggers Chef Infra Client across the fleet o
 
 {{< note >}}
 
-**What was run, and where.**
-The cookbook, profile, and Policyfile on this page were linted with Cookstyle 8.6.10
-and built with Chef Workstation 25.14.2.
-The policy was applied and validated with Chef Infra Client 18.11.11 in Ubuntu 22.04 and Rocky Linux 9 containers.
-Each container ran Chef Infra Client twice, to confirm the second run changes nothing,
-and again after a setting was changed by hand, to confirm Chef corrects it.
-The output on this page comes from those runs, with file paths shortened.
+**Docker validation.**
+Cookstyle and `chef install` were run with Chef Workstation 25.14.2 and Cookstyle 8.6.10.
+The cookbook and Compliance Phase were tested in Docker with Chef Infra Client 18.11.11 and Chef InSpec 5.24.24 on Ubuntu 22.04; the cookbook and profile were also tested on Rocky Linux 9.
+On Ubuntu, all three controls passed, the second converge updated no resources, and simulated SSH and sudoers drift was corrected.
+The effective SSH settings were `permitrootlogin no` and `passwordauthentication no`, and `visudo -c` parsed the sudoers files successfully.
+The Rocky Linux container reached an idempotent converge and passed the controls, but Docker didn't run systemd, so the SSH service restart wasn't tested on Rocky Linux.
 
-The DSM publication, node enrollment, and Chef Courier job steps reflect the documented workflow from
-[DSM operations](/360/latest/dsm/) and the
-[Courier job template reference](/360/latest/use/operators/job_execution/job_template/).
+The containers weren't connected to a Chef 360 Platform tenant.
+DSM publication, node enrollment, policy-group promotion, and scheduled Chef Courier jobs weren't tested end to end.
+Test those workflows in a nonproduction tenant before you use them in production.
 
 {{< /note >}}
 
@@ -106,6 +105,8 @@ You need:
 - **Linux servers enrolled in Chef 360 Platform** that meet the
   [Chef 360 Platform node requirements](/360/saas/system_requirements/).
   Chef Courier skills and DSM node management run on x86_64 Linux and on Windows Server 2019 and later.
+- **OpenSSH server and sudo** installed on each Linux server.
+  The SSH server configuration must include `/etc/ssh/sshd_config.d/*.conf`.
 - **Chef Infra Client on each server, registered separately with DSM.**
   Node Management enrollment for Courier doesn't register Chef Infra Client with DSM.
   Before running the examples, register each node with DSM and configure `/etc/chef/client.rb` with the DSM organization URL in `chef_server_url` and the node's client key path in `client_key`.
@@ -300,7 +301,7 @@ end
 control 'fleet-03' do
   impact 'high'
   title 'Grant sudo access to the admin group'
-  desc 'The approved administrative group must be defined and granted full sudo privileges.'
+  desc 'The cookbook grants this group sudo access; review other rules to determine whether additional users or groups also have access.'
   tag 'fleet', 'access'
 
   describe group(input('admin_group')) do
@@ -311,6 +312,10 @@ control 'fleet-03' do
     its('content') { should cmp "%#{input('admin_group')} ALL=(ALL) ALL\n" }
     its('mode') { should cmp '0440' }
     its('owner') { should cmp 'root' }
+  end
+
+  describe command('visudo -c') do
+    its('exit_status') { should cmp 0 }
   end
 end
 ```
@@ -365,16 +370,9 @@ cookstyle .
 chef install
 ```
 
-```text
-5 files inspected, no offenses detected
-Building policy fleet_baseline
-Expanded run list: recipe[fleet_baseline::default]
-Caching Cookbooks...
-Installing fleet_baseline >= 0.0.0 from path
-
-Lockfile written to /path/to/fleet_baseline/Policyfile.lock.json
-Policy revision id: de198f7d30756baeaebf34062927b88402451ae51a94edfbcbd6428c6c4366d2
-```
+Cookstyle should report no offenses.
+`chef install` writes `Policyfile.lock.json` and prints the revision ID for that lock.
+The ID changes when the cookbook content or Policyfile changes.
 
 `chef install` resolves every cookbook and records the exact version and content of each one in `Policyfile.lock.json`.
 The policy revision ID identifies that exact set.
@@ -423,14 +421,8 @@ Publish the locked policy to the `canary` policy group in DSM:
 chef push canary
 ```
 
-```text
-Deploying Policyfile 'fleet_baseline' to policy group 'canary' in DSM
-Uploaded fleet_baseline (0.1.0)
-Policy revision id: de198f7d30756baeaebf34062927b88402451ae51a94edfbcbd6428c6c4366d2
-Policyfile 'fleet_baseline' successfully published to 'canary'
-```
-
 `chef push` uploads the cookbooks and policy revision directly to DSM over HTTPS.
+Confirm that the revision ID reported by Chef Workstation matches the revision shown for the `canary` policy group in DSM.
 In the Chef 360 Platform UI, go to **DSM > Policyfiles** to view the policy,
 its revision ID, run list, and cookbook dependencies.
 In **DSM > Policy Groups**, you can view the `canary` group and the nodes assigned to it.
@@ -454,35 +446,9 @@ chef-client
 ```
 
 Chef Infra Client contacts DSM, receives the `fleet_baseline` policy assigned to `canary`,
-synchronizes the cookbook, and applies the configuration:
-
-```text
-Chef Infra Client, version 18.11.11
-Using Policyfile 'fleet_baseline' at revision 'de198f7d30756baeaebf34062927b88402451ae51a94edfbcbd6428c6c4366d2'
-Resolving cookbooks for run list: ["fleet_baseline::default@0.1.0"]
-Synchronizing cookbooks:
-  - fleet_baseline (0.1.0)
-Installing Cookbook Gems:
-Compiling Cookbooks...
-Converging 5 resources
-...
-Infra Phase complete, 10/12 resources updated in 00 seconds
-Compliance report:
- * Small fleet baseline
-      Show the login banner
-         + File /etc/issue.net is expected to be file
-         + File /etc/issue.net content is expected to match /Authorized use only/
-         + File /etc/issue.net mode is expected to cmp == "0644"
-      Turn off root and password SSH logins
-         + Command: `sshd -T` exit_status is expected to cmp == 0
-         + Command: `sshd -T` stdout is expected to match /^permitrootlogin no$/i
-         + Command: `sshd -T` stdout is expected to match /^passwordauthentication no$/i
-      Grant sudo access to the admin group
-         + Group ops is expected to exist
-         + File /etc/sudoers.d/ops content is expected to cmp == "%ops ALL=(ALL) ALL\n"
-         + File /etc/sudoers.d/ops mode is expected to cmp == "0440"
-         + File /etc/sudoers.d/ops owner is expected to cmp == "root"
-```
+synchronizes the cookbook, and applies the configuration.
+Confirm that the run reports the expected policy name and revision, that the compliance controls pass, and that the report is available at the configured location.
+Output varies with your Chef Infra Client version and reporting configuration.
 
 Run Chef Infra Client a second time on the canary node:
 
@@ -519,7 +485,7 @@ Create `fleet-baseline-job.json`:
 ```json
 {
   "name": "fleet-baseline-converge",
-  "description": "Trigger Chef Infra Client runs against DSM on an hourly schedule",
+  "description": "Trigger Chef Infra Client runs against DSM every four hours",
   "scheduleRule": "RRULE:FREQ=HOURLY;INTERVAL=4",
   "exceptionRules": [],
   "target": {
@@ -585,16 +551,18 @@ Replace `<CANARY_NODE_ID>` and `<NODE_ID_1>`, `<NODE_ID_2>`, `<NODE_ID_3>` with 
 How this job coordinates delivery:
 
 `scheduleRule`
-: Runs the job every four hours (`RRULE:FREQ=HOURLY;INTERVAL=4`),
-  so any unauthorized manual change is detected and reverted within four hours.
+: Schedules the job every four hours (`RRULE:FREQ=HOURLY;INTERVAL=4`).
+  Queue delays and run duration affect when a change is detected and corrected, so this interval doesn't guarantee that every change is corrected within four hours.
 
 `target.executionType: sequential`
-: Targets the canary node group first.
-  If the canary run fails, Courier aborts the execution before reaching the rest of the fleet.
+: Runs the target groups in order and starts the next group only when the previous group's success criteria pass.
+  This gates Courier job runs; it doesn't promote or hold a DSM policy revision.
+  Chef Infra Client retrieves the revision assigned to each node's DSM policy group.
+  Publish a candidate to `canary`, verify it there, and run `chef push fleet` separately to promote it.
 
 `batchSize` and `distributionMethod: rolling`
-: Rolls out to 25% of the remaining fleet at a time,
-  starting each new server as the previous one finishes.
+: Runs on up to 25% of the nodes in the fleet target group at a time,
+  starting another node as a run completes.
 
 `run-chef-client`
 : Executes Chef Infra Client on the node.
@@ -622,14 +590,15 @@ Every change follows a predictable path through DSM:
    chef push canary
    ```
 
-4. Trigger the Courier job or run `chef-client` on the canary node to verify the change.
+4. Run a canary-only Courier job or run `chef-client` on the canary node to verify the change.
+  The recurring job above includes both the canary and fleet groups; its sequential mode gates the fleet job runs, not policy promotion.
 5. Promote the policy to the fleet policy group in DSM:
 
    ```bash
    chef push fleet
    ```
 
-   All fleet nodes converge on the new revision during their next scheduled run.
+    All fleet nodes retrieve the new revision during their next Chef Infra Client run.
 
 To roll back, push the previous revision lock back to DSM:
 
@@ -653,18 +622,17 @@ and changed the mode of the sudoers file.
 Chef Infra Client corrected both and left everything else alone:
 
 ```text
-  * file[/etc/issue.net] action create (up to date)
   * file[/etc/ssh/sshd_config.d/00-fleet-baseline.conf] action create
-    - update content in file /etc/ssh/sshd_config.d/00-fleet-baseline.conf from e7be8a to 18e8b3
-  * service[ssh] action nothing (skipped due to action :nothing)
+    - update content in file /etc/ssh/sshd_config.d/00-fleet-baseline.conf from 80d51c to 18e8b3
   * file[/etc/sudoers.d/ops] action create
     - change mode from '0644' to '0440'
-  * service[ssh] action restart (skipped due to only_if)
-Infra Phase complete, 2/11 resources updated in 00 seconds
+  * service[ssh] action restart
+    - restart service service[ssh]
+Infra Phase complete, 3/11 resources updated in 01 seconds
 ```
 
-The restart is skipped here because the test container doesn't have the SSH server installed.
-On a server with `/usr/sbin/sshd`, the changed SSH configuration file triggers a restart at the end of the run.
+The Ubuntu Docker test confirmed that `sshd -T` reported `permitrootlogin no` and `passwordauthentication no` after the run.
+`visudo -c` also parsed the sudoers files successfully.
 
 Correcting drift isn't the same as explaining it.
 If the same resource is updated on the same server run after run,
@@ -688,7 +656,9 @@ When a Chef Courier job reports a failure, check which step failed:
 
 To stop the run on any failed control,
 add `audit-enforcer` as the last reporter in the Policyfile.
-Chef Infra Client then raises an error, which stops the Courier job and prevents an invalid release from moving past the canary.
+Chef Infra Client then raises an error, which fails the Courier run.
+Your release process must check the canary result before it runs `chef push fleet`.
+Courier's sequential execution gates later job groups; it doesn't promote or block a DSM policy revision.
 
 ## Where to go next
 
