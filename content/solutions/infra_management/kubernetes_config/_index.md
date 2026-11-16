@@ -67,7 +67,7 @@ Chef covers the first one, and the rest of the Chef platform helps you check the
 | --- | --- | --- | --- |
 | Cluster nodes | The Linux hosts: kernel parameters, packages, and the files the kubelet and the container runtime read | [Chef Infra Client](/client/latest/) resources such as `sysctl`, `template`, and `service` | Yes |
 | Cluster and workload objects | Deployments, ConfigMaps, network policies, Helm charts, and cluster add-ons | Not a Chef Infra Client feature. Use Kubernetes tooling | No |
-| Cluster assessment | Checking that a running cluster meets your requirements | [Chef InSpec](/inspec/latest/) and the [Kubernetes resource pack](/inspec/resource_packs/k8s/) | See [Kubernetes compliance](/solutions/compliance/kubernetes/) |
+| Cluster assessment | Checking that a running cluster meets your requirements | [Chef InSpec](/inspec/latest/) and the [Kubernetes resource pack](/inspec/resource_packs/k8s/) | See [Containers / Kubernetes compliance](/solutions/compliance/containers_kubernetes/) |
 | Chef 360 Platform | The Chef platform, which runs on Kubernetes | [Chef 360 Platform](/360/latest/) | See [Chef 360 runs on Kubernetes](#chef-360-runs-on-kubernetes) |
 
 Chef doesn't ship resources for kubectl, kubeadm, Helm, or Kubernetes API objects, so this page doesn't use any.
@@ -491,7 +491,6 @@ Nodes that run Kubernetes enroll the same way as any other Linux node, and they 
 The central service is Chef Declarative State Management (DSM) in Chef 360 Platform, which is the direct replacement for Chef Infra Server.
 All of the capabilities of Chef Infra Server are available in DSM.
 If you run Chef Infra Server today, see [Migrate from Chef Infra Server](/360/latest/migrate/on_prem_to_self_managed/).
-For more on enrolling, rolling out in waves, and the central service, see [the on-prem fleet page](/solutions/compliance/on_prem_fleet/).
 
 ## See the state of your nodes
 
@@ -503,7 +502,7 @@ In Chef 360 Platform, the Nodes page shows each node's enrollment level and heal
 Configuration and compliance answer different questions.
 Chef Infra Client makes the node match your code.
 Chef InSpec checks that the result, and the cluster above it, meets a requirement.
-The [Kubernetes compliance](/solutions/compliance/kubernetes/) page shows how to write and run those checks against a cluster.
+The [Containers / Kubernetes compliance](/solutions/compliance/containers_kubernetes/) page lists the Kubernetes benchmarks that Chef Compliance covers.
 
 ## Chef 360 runs on Kubernetes
 
@@ -546,7 +545,6 @@ Before you scale up:
 - [Chef 360 Platform](/360/latest/)
 - [Declarative State Management](/360/latest/understand/dsm/)
 - [Policyfiles](/policyfile/)
-- [The Chef way of Kubernetes compliance](/solutions/compliance/kubernetes/)
-- [The Chef way of managing an on-prem fleet](/solutions/compliance/on_prem_fleet/)
+- [Containers / Kubernetes compliance](/solutions/compliance/containers_kubernetes/)
 - [Kubernetes documentation: Container runtimes](https://kubernetes.io/docs/setup/production-environment/container-runtimes/)
 - [Kubernetes documentation: Set kubelet parameters with a configuration file](https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/)
