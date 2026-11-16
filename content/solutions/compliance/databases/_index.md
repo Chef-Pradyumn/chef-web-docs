@@ -192,9 +192,12 @@ To create a profile for PostgreSQL, follow these steps:
 1. Create `postgres-compliance-profile/controls/baseline.rb`:
 
    ```ruby
+   password = ENV.fetch('PG_PASSWORD', '')
+   raise 'Set the PG_PASSWORD environment variable before you run this profile.' if password.empty?
+
    sql = postgres_session(
      input('db_user'),
-     ENV.fetch('PG_PASSWORD'),
+     password,
      input('db_host'),
      input('db_port')
    )
@@ -256,6 +259,8 @@ To create a profile for PostgreSQL, follow these steps:
 
    The [`postgres_session`](/inspec/latest/resources/core/postgres_session/) resource takes the user, password, host, and port, and `query` runs a SQL statement in the database you name.
    The `output` property holds the text the query returns, so an empty string means the query returned no rows.
+   The first two lines stop the profile with a clear message when `PG_PASSWORD` isn't set.
+   Without them, the profile fails to load with `key not found: "PG_PASSWORD"`.
    Keep control IDs stable so you can compare results over time and apply waivers.
    Choose impact values that match your organization's risk model.
 
@@ -270,6 +275,8 @@ To check the profile and run it against the database, follow these steps:
    ```
 
    Validation doesn't confirm database access or that the controls produce correct results.
+   It also doesn't need `PG_PASSWORD`: `inspec check` reports the profile as valid even when the variable is unset.
+   The missing variable shows up only when you run the profile, in the next step.
 
 1. Read the password from your secret store into an environment variable, then run the profile:
 
@@ -279,6 +286,10 @@ To check the profile and run it against the database, follow these steps:
    inspec exec postgres-compliance-profile \
      --reporter cli json:results/postgres-compliance.json
    ```
+
+   If `PG_PASSWORD` isn't set, no control runs.
+   Chef InSpec reports `Failed to load source for controls/baseline.rb: Set the PG_PASSWORD environment variable before you run this profile.`, then `No tests executed`, and exits with code 102.
+   A wrong password doesn't pass silently: every control fails with `password authentication failed for user "postgres"`.
 
    This runs the profile on the machine you're logged in to, which is correct when it's the database host or can reach it.
    To assess a database host over SSH instead, add a target:

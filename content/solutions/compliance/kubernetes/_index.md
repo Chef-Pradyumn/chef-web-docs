@@ -129,7 +129,7 @@ To create a profile that uses the Kubernetes resource pack, follow these steps:
      platform: k8s
    depends:
      - name: inspec-k8s
-       url: https://github.com/inspec/inspec-k8s/archive/main.tar.gz
+       url: https://github.com/inspec/inspec-k8s/archive/95866b7e59cdc4456b92e2bffad33daaa009920d.tar.gz
    inputs:
      - name: namespaces
        description: Application namespaces that must exist and have a network policy
@@ -150,8 +150,10 @@ To create a profile that uses the Kubernetes resource pack, follow these steps:
    ```
 
    `supports: platform: k8s` tells Chef InSpec that the target is a Kubernetes cluster, not a host.
-   The dependency points at the `main` branch for brevity.
-   For scheduled production runs, pin a reviewed revision rather than a moving branch.
+   The dependency is pinned to one commit of the `inspec-k8s` repository, so every run uses the same resource code.
+   The `0.1.3` tag isn't enough: it predates the `k8s_namespaces`, `k8s_network_policies`, and `k8s_container` resources that this profile uses, and the controls fail with `undefined method` errors.
+   When you update the pin, review the new commit, then run the profile against a test cluster before you change the pin in production.
+   `inspec vendor` records the archive's checksum in `inspec.lock`, so a changed archive is detected.
    For dependency options, see [profile dependencies](/inspec/latest/profiles/depends/).
 
 1. Remove the generated example control:
@@ -289,6 +291,17 @@ To check the profile and run it against the cluster, follow these steps:
    The `inspec-k8s` profile also appears in the output with `No tests executed`.
    It's the resource pack dependency, which provides resources and no controls.
 For result formats and CLI options, see [reporters](/inspec/latest/configure/reporters/) and the [CLI reference](/inspec/latest/reference/cli/).
+
+If the namespace and network policy controls are skipped with `undefined method 'present?'`, the resource pack is using a method that your Chef InSpec build doesn't load.
+This happened with Chef InSpec 5.24.7 from Chef Workstation, and the same profile passed these controls once the method was loaded:
+
+```shell
+RUBYOPT="-ractive_support -ractive_support/core_ext/object/blank" \
+  inspec exec k8s-compliance-profile -t k8s:// \
+  --input-file k8s-compliance-profile/inputs.yml
+```
+
+A skip isn't evidence of compliance, so don't accept a run that skips these controls.
 
 If the run can't connect, first confirm that `kubectl get namespaces` works with the same `KUBECONFIG` and context.
 The Kubernetes target comes from the [train-kubernetes](https://github.com/inspec/train-kubernetes) plugin, which is included with Chef InSpec 5.22.0 and later.
