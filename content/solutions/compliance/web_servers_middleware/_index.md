@@ -166,6 +166,10 @@ inputs:
     description: Port the web server serves HTTPS on
     type: Numeric
     value: 443
+  - name: tls_host
+    description: HTTPS hostname reachable from the machine running Chef InSpec, also used for SNI
+    type: String
+    required: true
   - name: site_url
     description: URL the security header checks request, from the target itself
     type: String
@@ -247,12 +251,16 @@ end
 control 'web-02' do
   impact 'high'
   title 'Accept only TLS 1.2 and later'
-  desc 'The HTTPS listener must refuse SSL 3.0, TLS 1.0, and TLS 1.1 connections.'
+  desc 'The HTTPS listener must accept TLS 1.2 and refuse SSL 3.0, TLS 1.0, and TLS 1.1 connections.'
   desc 'rationale', 'Older protocol versions have known weaknesses and are disallowed by PCI DSS and NIST SP 800-52.'
   tag 'web', 'tls'
 
+  describe ssl(host: input('tls_host'), port: input('tls_port')).protocols('tls1.2') do
+    it { should be_enabled }
+  end
+
   %w(ssl3 tls1.0 tls1.1).each do |protocol|
-    describe ssl(port: input('tls_port')).protocols(protocol) do
+    describe ssl(host: input('tls_host'), port: input('tls_port')).protocols(protocol) do
       it { should_not be_enabled }
     end
   end
@@ -360,6 +368,9 @@ What's specific to web servers and middleware here:
   `web-02` checks what the listener actually accepts,
   not what a configuration file says it should,
   so it catches a second listener or an included file that re-enables an old protocol.
+  Set `tls_host` to the intended HTTPS hostname as resolved from the scanning host, not necessarily the SSH hostname.
+  The required TLS 1.2 handshake prevents the control from passing solely because all prohibited-protocol probes failed to connect.
+  This example requires TLS 1.2; adapt the positive check if your policy allows only TLS 1.3, and validate it with your scanner version.
 
 `http(...)` and `headers`
 : The [`http` resource](/inspec/latest/resources/core/http/)
@@ -457,6 +468,41 @@ These tests verify the key-policy assertions, not certificate trust, hostname va
 
 {{< /note >}}
 
+{{< note >}}
+
+**Legacy TLS detection test.**
+On November 17, 2026, `web-02` was tested from macOS with Chef Workstation 25.14.2 and Chef InSpec 5.24.7 against an OpenSSL listener in an Ubuntu 22.04 Docker container.
+The listener was exposed only on `127.0.0.1:62438` and allowed TLS 1.0 through TLS 1.2 with a test-only legacy cipher policy.
+OpenSSL clients independently confirmed TLS 1.0 and TLS 1.1 connections using `ECDHE-RSA-AES256-SHA`.
+Don't enable legacy protocols or weaken cipher policies on production listeners to reproduce this test.
+
+The original negative-only control unexpectedly passed when it probed `localhost` rather than the explicitly bound IPv4 address.
+With `tls_host=127.0.0.1` and the positive TLS 1.2 assertion shown above, the actual InSpec results were:
+
+```console
+  ✔  SSL/TLS on 127.0.0.1:62438 with protocol == "tls1.2" is expected to be enabled
+  ✔  SSL/TLS on 127.0.0.1:62438 with protocol == "ssl3" is expected not to be enabled
+  ×  SSL/TLS on 127.0.0.1:62438 with protocol == "tls1.0" is expected not to be enabled
+  ×  SSL/TLS on 127.0.0.1:62438 with protocol == "tls1.1" is expected not to be enabled
+
+Profile Summary: 0 successful controls, 1 control failure, 0 controls skipped
+Test Summary: 2 successful, 2 failures, 0 skipped
+```
+
+The scan returned exit code `100`.
+A comparison listener restricted to TLS 1.2 passed all four assertions:
+
+```console
+Profile Summary: 1 successful control, 0 control failures, 0 controls skipped
+Test Summary: 4 successful, 0 failures, 0 skipped
+```
+
+The comparison scan returned exit code `0`.
+These tests verify protocol detection, not certificate trust or hostname validation.
+Confirm the endpoint address, SNI hostname, scanner capabilities, and both positive and negative handshake results in your environment.
+
+{{< /note >}}
+
 ## Step 3: Validate the profile
 
 ```bash
@@ -481,7 +527,8 @@ Run the profile against a server over SSH:
 inspec exec web-tier-baseline \
   --target ssh://admin@web01.example.com \
   --key-files ~/.ssh/id_rsa \
-  --sudo
+  --sudo \
+  --input tls_host=web01.example.com
 ```
 
 `--sudo` is needed because private keys, Tomcat configuration, and some NGINX include files
@@ -494,7 +541,7 @@ inspec exec web-tier-baseline \
   --target ssh://admin@web02.example.com \
   --key-files ~/.ssh/id_rsa \
   --sudo \
-  --input certificate_path=/etc/ssl/certs/web02.pem tomcat_home=/srv/tomcat
+  --input tls_host=web02.example.com certificate_path=/etc/ssl/certs/web02.pem tomcat_home=/srv/tomcat
 ```
 
 ### Run it with a published benchmark
@@ -509,6 +556,7 @@ inspec exec web-tier-baseline path/to/tomcat-benchmark-profile path/to/os-benchm
   --target ssh://admin@web01.example.com \
   --key-files ~/.ssh/id_rsa \
   --sudo \
+  --input tls_host=web01.example.com \
   --reporter cli json:web01-results.json
 ```
 
@@ -521,7 +569,7 @@ from a benchmark finding.
 
 ## Step 5: Read the results
 
-A run against a server running NGINX and Tomcat with package defaults,
+An illustrative run against a server running NGINX and Tomcat with package defaults,
 a missing HSTS header, and a certificate that expires in 20 days:
 
 ```text
@@ -539,6 +587,7 @@ Target:    ssh://admin@web01.example.com:22
      ✔  HTTP GET on https://localhost/ headers.Server is expected not to match /nginx\/\d+/i
 
   ✔  web-02: Accept only TLS 1.2 and later
+      ✔  SSL/TLS on web01.example.com:443 with protocol == "tls1.2" is expected to be enabled
      ✔  SSL/TLS on web01.example.com:443 with protocol == "ssl3" is expected not to be enabled
      ✔  SSL/TLS on web01.example.com:443 with protocol == "tls1.0" is expected not to be enabled
      ✔  SSL/TLS on web01.example.com:443 with protocol == "tls1.1" is expected not to be enabled
