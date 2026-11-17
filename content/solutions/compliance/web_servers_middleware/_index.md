@@ -280,7 +280,7 @@ end
 
 control 'web-04' do
   impact 'high'
-  title 'Renew certificates before they expire'
+  title 'Check the certificate file before it expires'
   desc 'The certificate file configured for the web server must remain valid for at least the configured number of days.'
   desc 'rationale', 'An expired certificate takes the service down for every client that validates it.'
   tag 'web', 'tls', 'certificate'
@@ -359,6 +359,7 @@ What's specific to web servers and middleware here:
   Set `certificate_min_days` longer than your renewal process takes,
   so a failure is a warning you can act on, not an outage.
   This control checks the deployed certificate file.
+  A passing result doesn't prove that the listener serves that file or that the served certificate meets the same requirements.
   To test the certificate presented on the wire during a live TLS handshake
   (accounting for load balancers or SNI virtual hosts),
   run an external certificate check against the public endpoint.
@@ -375,6 +376,38 @@ What's specific to web servers and middleware here:
 For the parts of a control that aren't specific to web servers ---
 `impact`, `desc`, `tag`, and `cmp` ---
 see [Step 2 of SSH compliance](/solutions/compliance/ssh_baseline/#step-2-write-the-controls).
+
+{{< note >}}
+
+**Certificate mismatch test.**
+In an Ubuntu 22.04 Docker container, Chef InSpec 5.24.24 checked a 365-day certificate at `/tmp/disk.crt` while an OpenSSL TLS listener on port 9443 served a different, one-day certificate.
+Both certificates used 2048-bit RSA keys.
+The listener's certificate was retrieved with `openssl s_client` using the server name `listener.example.test`.
+The following excerpts are from that test on November 17, 2026:
+
+```console
+DISK CERTIFICATE
+subject=CN = disk.example.test
+notAfter=Nov 17 09:13:07 2027 GMT
+SERVED CERTIFICATE
+subject=CN = listener.example.test
+notAfter=Nov 18 09:13:07 2026 GMT
+SERVED CERTIFICATE 30-DAY CHECK
+Certificate will expire
+```
+
+The 30-day OpenSSL check failed for the retrieved certificate, but the file-based InSpec control passed:
+
+```console
+Profile Summary: 1 successful control, 0 control failures, 0 controls skipped
+Test Summary: 2 successful, 0 failures, 0 skipped
+```
+
+The InSpec control checked only `/tmp/disk.crt` for at least 30 remaining days and a key length of at least 2048 bits.
+It didn't assess the listener's certificate.
+Use a separate endpoint check with the intended hostname and SNI configuration to assess the served certificate.
+
+{{< /note >}}
 
 ## Step 3: Validate the profile
 
