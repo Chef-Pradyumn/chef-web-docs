@@ -36,7 +36,7 @@ see [Use client-server mode instead](#use-client-server-mode-instead).
 
 ## What you'll build
 
-You'll extend the `base_linux` cookbook from [Linux server configuration management](/solutions/infra_management/linux_server/) with an `azure` recipe, then:
+You'll create an `azure_base` cookbook with a baseline recipe and an `azure` recipe, then:
 
 - Publish the locked policy to a Blob Storage container, with one path for each policy group.
 - Store your Chef license key in Key Vault.
@@ -48,9 +48,9 @@ You'll extend the `base_linux` cookbook from [Linux server configuration managem
 
 You need:
 
-- The `base_linux` cookbook from [Linux server configuration management](/solutions/infra_management/linux_server/), tested with `kitchen test`.
-- [Chef Workstation](/workstation/latest/) 26 or later.
+- [Chef Workstation](/workstation/latest/) 26 or later, which includes Test Kitchen and Chef InSpec.
 - A [Chef license key](/licensing/license_key/).
+- Docker or Podman on your workstation, for the Test Kitchen Dokken driver.
 - An Azure subscription and the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli), signed in with permission to create resource groups, Key Vaults, storage accounts, managed identities, role assignments, and VMs.
 - The **Key Vault Secrets Officer** and **Storage Blob Data Contributor** roles for your own account, so you can write the secret and upload the policy.
 
@@ -61,12 +61,81 @@ The commands use these placeholders:
 - `<ACCOUNT>`: A globally unique storage account name.
 - `<CHEF_VERSION>`: The Chef Infra Client 19 version to install.
 
+## Create the cookbook
+
+Start with a cookbook that holds the baseline every VM needs.
+The example recipe sets a time zone, installs packages, and sets a kernel parameter; replace it with your own settings.
+
+1. Generate a cookbook.
+   Chef Workstation creates a Policyfile and a Test Kitchen configuration with it:
+
+   ```shell
+   chef generate cookbook azure_base
+   cd azure_base
+   ```
+
+1. Replace `recipes/default.rb` with a baseline recipe:
+
+   ```ruby
+   timezone 'UTC'
+
+   package %w(curl jq)
+
+   sysctl 'vm.swappiness' do
+     value 10
+   end
+   ```
+
+1. Replace `test/integration/default/default_test.rb` with tests for the baseline:
+
+   ```ruby
+   describe package('jq') do
+     it { should be_installed }
+   end
+
+   describe kernel_parameter('vm.swappiness') do
+     its('value') { should eq 10 }
+   end
+   ```
+
+1. Replace `kitchen.yml` with the following, so Test Kitchen converges the cookbook in an Ubuntu 24.04 container.
+   For Chef Infra Client 19, Chef Test Kitchen Enterprise supports the [Dokken driver](/workstation/latest/tools/kitchen/run/).
+
+   ```yaml
+   ---
+   driver:
+     name: dokken
+     privileged: true
+     chef_version: <CHEF_VERSION>
+
+   provisioner:
+     name: dokken
+
+   transport:
+     name: dokken
+
+   verifier:
+     name: inspec
+
+   platforms:
+     - name: ubuntu-24.04
+       driver:
+         image: dokken/ubuntu-24.04
+         pid_one_command: /bin/systemd
+
+   suites:
+     - name: default
+       verifier:
+         inspec_tests:
+           - test/integration/default
+   ```
+
 ## Add an Azure recipe
 
 Ohai's Azure plugin detects Azure from the VM agent and reads IMDS.
 It stores the compute metadata in `node['azure']['metadata']['compute']`, including `location`, `resourceGroupName`, `vmSize`, and `tagsList`.
 
-1. In the `base_linux` cookbook, create `recipes/azure.rb`:
+1. In the `azure_base` cookbook, create `recipes/azure.rb`:
 
    ```ruby
    # Skip on systems that aren't Azure VMs, such as Test Kitchen containers.
@@ -122,11 +191,18 @@ It stores the compute metadata in `node['azure']['metadata']['compute']`, includ
 1. Add the recipe to the run-list in `Policyfile.rb`:
 
    ```ruby
-   run_list 'base_linux::default', 'base_linux::azure'
+   run_list 'azure_base::default', 'azure_base::azure'
    ```
 
-1. Run `kitchen test` again.
-   The `azure` recipe returns early in the containers, so the Linux baseline tests still pass.
+1. Lint the cookbook, then converge and verify it:
+
+   ```shell
+   cookstyle .
+   kitchen test
+   ```
+
+   The `azure` recipe returns early in the container, so Test Kitchen checks the baseline.
+   Test the `azure` recipe itself on an Azure VM, as described in [Create a test VM](#create-a-test-vm).
 
 ## Create the Azure resources
 
@@ -187,12 +263,12 @@ Package that directory and upload it to a path for the policy group:
 ```shell
 chef install
 chef export Policyfile.rb ./export --force
-tar -czf base_linux.tgz -C export .
+tar -czf azure_base.tgz -C export .
 az storage blob upload --account-name <ACCOUNT> --container-name chef-policies \
-  --name staging/base_linux.tgz --file base_linux.tgz --auth-mode login --overwrite
+  --name staging/azure_base.tgz --file azure_base.tgz --auth-mode login --overwrite
 ```
 
-When a change is ready for production, upload the same archive as `production/base_linux.tgz`.
+When a change is ready for production, upload the same archive as `production/azure_base.tgz`.
 Run these commands from your CI pipeline so that only reviewed and tested policies reach the container.
 
 ## Write the cloud-init file
@@ -212,7 +288,7 @@ write_files:
 
       CHEF_VERSION="<CHEF_VERSION>"
       CLIENT_ID="<CLIENT_ID>"
-      POLICY_URL="https://<ACCOUNT>.blob.core.windows.net/chef-policies/<POLICY_GROUP>/base_linux.tgz"
+      POLICY_URL="https://<ACCOUNT>.blob.core.windows.net/chef-policies/<POLICY_GROUP>/azure_base.tgz"
       POLICY_DIR=/var/chef/policy
 
       # Get an access token for the managed identity from IMDS.
@@ -234,11 +310,11 @@ write_files:
         if [ "${pm}" = deb ]; then dpkg -i "${pkg}"; else dnf install -y "${pkg}"; fi
       fi
 
-      curl -fsS -o /tmp/base_linux.tgz \
+      curl -fsS -o /tmp/azure_base.tgz \
         -H "Authorization: Bearer $(token https%3A%2F%2Fstorage.azure.com%2F)" \
         -H "x-ms-version: 2020-04-08" "${POLICY_URL}"
       rm -rf "${POLICY_DIR}" && mkdir -p "${POLICY_DIR}"
-      tar -xzf /tmp/base_linux.tgz -C "${POLICY_DIR}"
+      tar -xzf /tmp/azure_base.tgz -C "${POLICY_DIR}"
       cd "${POLICY_DIR}"
       chef-client --local-mode --chef-license accept
 runcmd:
@@ -330,8 +406,6 @@ To send local-mode run data to Chef Automate, see [Data collection](/automate/da
 ## Related resources
 
 - [Chef Infrastructure Management overview](/solutions/infra_management/)
-- [Linux server configuration management](/solutions/infra_management/linux_server/)
-- [GCP configuration management](/solutions/infra_management/gcp/)
 - [Ohai](/client/latest/features/ohai/)
 - [Policyfiles](/client/latest/policy/policyfile/)
 - [Azure: Custom data and cloud-init on Azure VMs](https://learn.microsoft.com/azure/virtual-machines/custom-data)
