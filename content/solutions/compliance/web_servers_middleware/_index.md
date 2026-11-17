@@ -285,9 +285,25 @@ control 'web-04' do
   desc 'rationale', 'An expired certificate takes the service down for every client that validates it.'
   tag 'web', 'tls', 'certificate'
 
-  describe x509_certificate(input('certificate_path')) do
+  certificate = x509_certificate(input('certificate_path'))
+  public_key = certificate.public_key
+
+  describe certificate do
     its('validity_in_days') { should be >= input('certificate_min_days') }
-    its('key_length') { should be >= 2048 }
+  end
+
+  describe public_key.class.name do
+    it { should be_in %w(OpenSSL::PKey::RSA OpenSSL::PKey::EC) }
+  end
+
+  if public_key.is_a?(OpenSSL::PKey::RSA)
+    describe public_key.n.num_bits do
+      it { should be >= 2048 }
+    end
+  elsif public_key.is_a?(OpenSSL::PKey::EC)
+    describe public_key.group.curve_name do
+      it { should be_in %w(prime256v1 secp384r1 secp521r1) }
+    end
   end
 end
 
@@ -364,6 +380,13 @@ What's specific to web servers and middleware here:
   (accounting for load balancers or SNI virtual hosts),
   run an external certificate check against the public endpoint.
 
+`certificate.public_key`
+: Exposes the certificate's public key so `web-04` can apply an algorithm-specific policy.
+  This example requires RSA keys of at least 2048 bits or EC keys on P-256, P-384, or P-521, and fails for other key types.
+  The OpenSSL curve names are `prime256v1`, `secp384r1`, and `secp521r1`.
+  RSA and EC key lengths aren't directly comparable.
+  Align the allowed algorithms, RSA minimum, and EC curves with your organization's cryptographic policy.
+
 `xml(...)` with `Server/@port`
 : The [`xml` resource](/inspec/latest/resources/core/xml/)
   evaluates an XPath expression against `server.xml` and returns an array of matches.
@@ -379,7 +402,7 @@ see [Step 2 of SSH compliance](/solutions/compliance/ssh_baseline/#step-2-write-
 
 {{< note >}}
 
-**Certificate mismatch test.**
+**Certificate mismatch test of the original file check.**
 In an Ubuntu 22.04 Docker container, Chef InSpec 5.24.24 checked a 365-day certificate at `/tmp/disk.crt` while an OpenSSL TLS listener on port 9443 served a different, one-day certificate.
 Both certificates used 2048-bit RSA keys.
 The listener's certificate was retrieved with `openssl s_client` using the server name `listener.example.test`.
@@ -406,6 +429,31 @@ Test Summary: 2 successful, 0 failures, 0 skipped
 The InSpec control checked only `/tmp/disk.crt` for at least 30 remaining days and a key length of at least 2048 bits.
 It didn't assess the listener's certificate.
 Use a separate endpoint check with the intended hostname and SNI configuration to assess the served certificate.
+
+{{< /note >}}
+
+{{< note >}}
+
+**RSA and EC tests.**
+On November 17, 2026, the original `key_length >= 2048` assertion was tested with RSA-2048 and EC P-256 certificates in an Ubuntu 22.04 Docker container using Chef InSpec 5.24.24.
+RSA passed, but the EC check raised an undefined-method error for `n` on `OpenSSL::PKey::EC` rather than returning a key length.
+That version's `key_length` implementation assumes an RSA modulus.
+
+The algorithm-specific assertions shown above were then tested with four certificates.
+RSA-2048 and EC P-256 passed; RSA-1024 and EC P-224 failed as intended.
+These excerpts show the actual results:
+
+```console
+  ✔  2048 is expected to be >= 2048
+  ✔  prime256v1 is expected to be in "prime256v1", "secp384r1", and "secp521r1"
+  ×  1024 is expected to be >= 2048
+  ×  secp224r1 is expected to be in "prime256v1", "secp384r1", and "secp521r1"
+
+Profile Summary: 2 successful controls, 2 control failures, 0 controls skipped
+Test Summary: 6 successful, 2 failures, 0 skipped
+```
+
+These tests verify the key-policy assertions, not certificate trust, hostname validation, or the listener's served certificate.
 
 {{< /note >}}
 
