@@ -582,6 +582,17 @@ See [Create a Courier job with the CLI](/360/latest/use/operators/job_execution/
 
 Every change follows a predictable path through DSM:
 
+Before you update the policy, preserve the lock file for the currently deployed, verified `fleet` revision.
+From the cookbook directory, run:
+
+```shell
+cp Policyfile.lock.json Policyfile.previous.lock.json
+```
+
+Only copy this file after confirming that its revision matches the known-good revision deployed to `fleet`.
+Keep the saved lock file with that release's source code and cookbook artifacts so you can retrieve them during a rollback.
+Chef doesn't create `Policyfile.previous.lock.json` automatically.
+
 1. Update the cookbook or Policyfile in a Git branch, and test with `kitchen test`.
 2. After review and merge, run `chef update` to lock the new revision ID.
 3. Deploy to the canary policy group in DSM:
@@ -600,13 +611,17 @@ Every change follows a predictable path through DSM:
 
     All fleet nodes retrieve the new revision during their next Chef Infra Client run.
 
-To roll back, push the previous revision lock back to DSM:
+To roll back, run the following command from the saved release's cookbook directory:
 
-```bash
-chef push fleet Policyfile.lock.json.previous
+```shell
+chef push fleet Policyfile.previous.lock.json
 ```
 
-Rolling back reapplies the previous policy.
+The saved filename must end in `.lock.json` for Chef CLI to recognize it as a lock file.
+This DSM rollback hasn't been tested against a live tenant as part of this guide's Docker validation.
+In a nonproduction tenant, confirm that the `fleet` policy group references the saved revision after the push, then converge a test node and verify its configuration and compliance results.
+
+This command reassigns the policy group to the saved revision; nodes apply that revision on their next Chef Infra Client run.
 It doesn't undo changes the newer policy made that the previous policy doesn't manage.
 For example, if the new release added a package and you roll back,
 the package stays installed until a policy removes it.
