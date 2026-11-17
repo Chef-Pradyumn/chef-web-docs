@@ -32,6 +32,16 @@ Start here:
 - **Already using another Chef product?**
   See [Use Chef Infra with other Chef products](#use-chef-infra-with-other-chef-products).
 
+## Solutions by environment
+
+Each of the following guides builds a working configuration for one environment:
+
+| Guide | What you build |
+| --- | --- |
+| [Linux server configuration management](/solutions/infra_management/linux_server/) | A baseline cookbook that handles Debian and RHEL differences, tested with Test Kitchen and rolled out with a Policyfile |
+| [GCP configuration management](/solutions/infra_management/gcp/) | Compute Engine VMs and managed instance groups that converge at boot from a policy in Cloud Storage |
+| [Azure configuration management](/solutions/infra_management/azure/) | Azure VMs and scale sets that converge with cloud-init, Key Vault, and a policy in Blob Storage |
+
 ## How Chef Infra works
 
 | Component | Role |
