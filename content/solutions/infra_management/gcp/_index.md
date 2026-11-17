@@ -36,7 +36,7 @@ see [Use client-server mode instead](#use-client-server-mode-instead).
 
 ## What you'll build
 
-You'll extend the `base_linux` cookbook from [Linux server configuration management](/solutions/infra_management/linux_server/) with a `gcp` recipe, then:
+You'll create a `gcp_base` cookbook with a baseline recipe and a `gcp` recipe, then:
 
 - Publish the locked policy to a Cloud Storage bucket, with one path for each policy group.
 - Store your Chef license key in Secret Manager.
@@ -48,9 +48,9 @@ You'll extend the `base_linux` cookbook from [Linux server configuration managem
 
 You need:
 
-- The `base_linux` cookbook from [Linux server configuration management](/solutions/infra_management/linux_server/), tested with `kitchen test`.
-- [Chef Workstation](/workstation/latest/) 26 or later.
+- [Chef Workstation](/workstation/latest/) 26 or later, which includes Test Kitchen and Chef InSpec.
 - A [Chef license key](/licensing/license_key/).
+- Docker or Podman on your workstation, for the Test Kitchen Dokken driver.
 - A Google Cloud project with billing enabled and the Compute Engine and Secret Manager APIs turned on.
 - The [Google Cloud CLI](https://cloud.google.com/sdk/docs/install), signed in with permission to create buckets, secrets, service accounts, IAM bindings, and VMs.
 
@@ -61,6 +61,75 @@ The commands use these placeholders:
 - `<BUCKET>`: A globally unique Cloud Storage bucket name.
 - `<CHEF_VERSION>`: The Chef Infra Client 19 version to install.
 
+## Create the cookbook
+
+Start with a cookbook that holds the baseline every VM needs.
+The example recipe sets a time zone, installs packages, and sets a kernel parameter; replace it with your own settings.
+
+1. Generate a cookbook.
+   Chef Workstation creates a Policyfile and a Test Kitchen configuration with it:
+
+   ```shell
+   chef generate cookbook gcp_base
+   cd gcp_base
+   ```
+
+1. Replace `recipes/default.rb` with a baseline recipe:
+
+   ```ruby
+   timezone 'UTC'
+
+   package %w(curl jq)
+
+   sysctl 'vm.swappiness' do
+     value 10
+   end
+   ```
+
+1. Replace `test/integration/default/default_test.rb` with tests for the baseline:
+
+   ```ruby
+   describe package('jq') do
+     it { should be_installed }
+   end
+
+   describe kernel_parameter('vm.swappiness') do
+     its('value') { should eq 10 }
+   end
+   ```
+
+1. Replace `kitchen.yml` with the following, so Test Kitchen converges the cookbook in an Ubuntu 24.04 container.
+   For Chef Infra Client 19, Chef Test Kitchen Enterprise supports the [Dokken driver](/workstation/latest/tools/kitchen/run/).
+
+   ```yaml
+   ---
+   driver:
+     name: dokken
+     privileged: true
+     chef_version: <CHEF_VERSION>
+
+   provisioner:
+     name: dokken
+
+   transport:
+     name: dokken
+
+   verifier:
+     name: inspec
+
+   platforms:
+     - name: ubuntu-24.04
+       driver:
+         image: dokken/ubuntu-24.04
+         pid_one_command: /bin/systemd
+
+   suites:
+     - name: default
+       verifier:
+         inspec_tests:
+           - test/integration/default
+   ```
+
 ## Add a GCP recipe
 
 Ohai's GCE plugin reads the VM metadata server and stores the result in `node['gce']`.
@@ -68,7 +137,7 @@ The `instance` key holds VM data such as `zone`, `machineType`, and the custom m
 The `project` key holds `projectId`.
 Compute Engine reports zone and machine type as resource paths, so the recipe keeps only the last segment.
 
-1. In the `base_linux` cookbook, create `recipes/gcp.rb`:
+1. In the `gcp_base` cookbook, create `recipes/gcp.rb`:
 
    ```ruby
    # Skip on systems that aren't Compute Engine VMs, such as Test Kitchen containers.
@@ -123,11 +192,18 @@ Compute Engine reports zone and machine type as resource paths, so the recipe ke
 1. Add the recipe to the run-list in `Policyfile.rb`:
 
    ```ruby
-   run_list 'base_linux::default', 'base_linux::gcp'
+   run_list 'gcp_base::default', 'gcp_base::gcp'
    ```
 
-1. Run `kitchen test` again.
-   The `gcp` recipe returns early in the containers, so the Linux baseline tests still pass.
+1. Lint the cookbook, then converge and verify it:
+
+   ```shell
+   cookstyle .
+   kitchen test
+   ```
+
+   The `gcp` recipe returns early in the container, so Test Kitchen checks the baseline.
+   Test the `gcp` recipe itself on a Compute Engine VM, as described in [Create a test VM](#create-a-test-vm).
 
 ## Publish the policy to Cloud Storage
 
@@ -146,11 +222,11 @@ Package that directory and upload it to a path for the policy group.
    ```shell
    chef install
    chef export Policyfile.rb ./export --force
-   tar -czf base_linux.tgz -C export .
-   gcloud storage cp base_linux.tgz gs://<BUCKET>/staging/base_linux.tgz
+   tar -czf gcp_base.tgz -C export .
+   gcloud storage cp gcp_base.tgz gs://<BUCKET>/staging/gcp_base.tgz
    ```
 
-When a change is ready for production, upload the same archive to `gs://<BUCKET>/production/base_linux.tgz`.
+When a change is ready for production, upload the same archive to `gs://<BUCKET>/production/gcp_base.tgz`.
 Run these commands from your CI pipeline so that only reviewed and tested policies reach the bucket.
 
 ## Grant VMs access to the license key and policy
@@ -207,9 +283,9 @@ if ! command -v chef-client >/dev/null 2>&1; then
   if [ "${pm}" = deb ]; then dpkg -i "${pkg}"; else dnf install -y "${pkg}"; fi
 fi
 
-gcloud storage cp "${POLICY_URI}" /tmp/base_linux.tgz
+gcloud storage cp "${POLICY_URI}" /tmp/gcp_base.tgz
 rm -rf "${POLICY_DIR}" && mkdir -p "${POLICY_DIR}"
-tar -xzf /tmp/base_linux.tgz -C "${POLICY_DIR}"
+tar -xzf /tmp/gcp_base.tgz -C "${POLICY_DIR}"
 cd "${POLICY_DIR}"
 chef-client --local-mode --chef-license accept
 ```
@@ -231,7 +307,7 @@ To inspect or rerun it on a VM, use `sudo journalctl -u google-startup-scripts.s
      --zone=<ZONE> --machine-type=e2-small \
      --image-family=ubuntu-2404-lts-amd64 --image-project=ubuntu-os-cloud \
      --service-account=chef-node@<PROJECT_ID>.iam.gserviceaccount.com --scopes=cloud-platform \
-     --metadata=app-tier=web,chef-policy-uri=gs://<BUCKET>/staging/base_linux.tgz \
+     --metadata=app-tier=web,chef-policy-uri=gs://<BUCKET>/staging/gcp_base.tgz \
      --metadata-from-file=startup-script=chef-converge.sh
    ```
 
@@ -262,7 +338,7 @@ An instance template stores the startup script and metadata, so every VM that a 
      --machine-type=e2-small \
      --image-family=ubuntu-2404-lts-amd64 --image-project=ubuntu-os-cloud \
      --service-account=chef-node@<PROJECT_ID>.iam.gserviceaccount.com --scopes=cloud-platform \
-     --metadata=app-tier=web,chef-policy-uri=gs://<BUCKET>/production/base_linux.tgz \
+     --metadata=app-tier=web,chef-policy-uri=gs://<BUCKET>/production/gcp_base.tgz \
      --metadata-from-file=startup-script=chef-converge.sh
    ```
 
@@ -303,8 +379,6 @@ To send local-mode run data to Chef Automate, see [Data collection](/automate/da
 ## Related resources
 
 - [Chef Infrastructure Management overview](/solutions/infra_management/)
-- [Linux server configuration management](/solutions/infra_management/linux_server/)
-- [Azure configuration management](/solutions/infra_management/azure/)
 - [Ohai](/client/latest/features/ohai/)
 - [Policyfiles](/client/latest/policy/policyfile/)
 - [Google Cloud: Use startup scripts on Linux VMs](https://cloud.google.com/compute/docs/instances/startup-scripts/linux)
