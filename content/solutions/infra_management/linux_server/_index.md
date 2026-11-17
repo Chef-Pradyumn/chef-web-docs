@@ -301,8 +301,6 @@ If `command -v chef-client` returns a different path on your servers, set the `c
 ## Related resources
 
 - [Chef Infrastructure Management overview](/solutions/infra_management/)
-- [GCP configuration management](/solutions/infra_management/gcp/)
-- [Azure configuration management](/solutions/infra_management/azure/)
 - [Chef Compliance solution](/solutions/compliance/)
 - [Chef Infra Client resources](/client/latest/resources/)
 - [Policyfiles](/client/latest/policy/policyfile/)
